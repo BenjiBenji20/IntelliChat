@@ -1,0 +1,26 @@
+# tools
+dotenv
+regex
+
+# web framework tools
+fastapi
+uvicorn
+
+# database
+sqlalchemy
+asyncpg
+alembic
+psycopg2-binary
+motor
+
+# type hinting and validations
+pydantic_settings
+email-validator
+
+# security
+python-jose[cryptography]
+passlib[bcrypt]
+PyJWT
+python-multipart
+bcrypt==3.2.2
+passlib==1.7.4
