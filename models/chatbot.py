@@ -11,6 +11,7 @@ class Chatbot(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("profiles.id", ondelete="CASCADE"), nullable=False)
+    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     application_name = Column(String(100), nullable=False)
     system_prompt = Column(String, nullable=False)
     temperature = Column(Numeric(3, 2), nullable=False, default=0.70)
@@ -23,6 +24,7 @@ class Chatbot(Base):
     __table_args__ = (
         UniqueConstraint("user_id", "application_name", name="uq_chatbots_user_name"),
         Index("idx_chatbots_user_id", "user_id"),
+        Index("idx_chatbots_project_id", "project_id")
     )
 
     # relationships
@@ -34,4 +36,5 @@ class Chatbot(Base):
     redis_keys = relationship("RedisKey", back_populates="chatbot", cascade="all, delete")
     embedding_model_keys = relationship("EmbeddingModelKey", back_populates="chatbot", cascade="all, delete")
     llm_keys = relationship("LlmKey", back_populates="chatbot", cascade="all, delete")
+    project = relationship("Project", back_populates="chatbots", uselist=False)
     
