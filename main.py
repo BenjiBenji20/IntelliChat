@@ -28,7 +28,7 @@ async def life_span(app: FastAPI):
             # await conn.run_sync(Base.metadata.drop_all)
             # await conn.run_sync(Base.metadata.create_all)
             await conn.execute(text("SELECT 1"))
-            print("\n\n Postgres connected successfully!")
+            print("\n\nPostgres connected successfully!")
             
         yield
         
@@ -42,3 +42,8 @@ app = FastAPI(
     title=settings.APP_NAME,
     lifespan=life_span
 )
+
+
+# Register routers
+from routers.v1.project_router import router as project_router
+app.include_router(project_router)
