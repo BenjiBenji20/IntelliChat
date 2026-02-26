@@ -13,6 +13,7 @@ class Project(Base):
     owner_id = Column(UUID(as_uuid=True), ForeignKey("profiles.id", ondelete="CASCADE"), nullable=False)
     name = Column(String(100), nullable=False)
     description = Column(Text, nullable=True)
+    hashed_api_key = Column(String(64), nullable=False)
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
