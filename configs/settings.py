@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     POSTGRES_PORT: int
     POSTGRES_DATABASE: str
     
+    # api secret key security
+    SECRET_KEY_PREFIX: str
+    
     class Config:
         env_file = ".env"
         extra = "ignore"
