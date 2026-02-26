@@ -1,9 +1,25 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from sqlalchemy import text
 
 from configs.settings import settings
-from db.base import Base
 from db.db_session import engine
+
+# Import all models 
+from db.base import Base
+from models.profile import Profile
+from models.chatbot import Chatbot
+from models.document import Document
+from models.embedding_metadata import EmbeddingMetadata
+from models.conversation import Conversation
+from models.message import Message
+from models.api_key import ApiKey
+from models.redis_key import RedisKey
+from models.embedding_model_key import EmbeddingModelKey
+from models.llm_key import LlmKey
+from models.project import Project
+from models.project_member import ProjectMember
+from models.project_invitation import ProjectInvitation
 
 @asynccontextmanager
 async def life_span(app: FastAPI):
@@ -11,14 +27,14 @@ async def life_span(app: FastAPI):
         async with engine.begin() as conn:
             # await conn.run_sync(Base.metadata.drop_all)
             # await conn.run_sync(Base.metadata.create_all)
-
+            await conn.execute(text("SELECT 1"))
             print("\n\n Postgres connected successfully!")
             
         yield
         
     finally:
         await engine.dispose()
-        print("\n\Postgres acyncpg engine disposed...")
+        print("\n\nPostgres acyncpg engine disposed...")
         print("Application shutdown...")
         
         
