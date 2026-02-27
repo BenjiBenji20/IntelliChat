@@ -8,14 +8,15 @@ class Settings(BaseSettings):
     ENV: Literal["dev", "prod", "test"] = "dev"
     
     # db settings
-    POSTGRES_USER: str
-    POSTGRES_PASSWORD: SecretStr
-    POSTGRES_HOST: str
-    POSTGRES_PORT: int
-    POSTGRES_DATABASE: str
+    # temporarily nullable for successfully deployment in GCP cloud run 
+    POSTGRES_USER: str | None = None
+    POSTGRES_PASSWORD: SecretStr | None = None
+    POSTGRES_HOST: str | None = None
+    POSTGRES_PORT: int | None = None
+    POSTGRES_DATABASE: str | None = None
     
     # api secret key security
-    SECRET_KEY_PREFIX: str
+    SECRET_KEY_PREFIX: str | None = None
     
     class Config:
         env_file = ".env"
