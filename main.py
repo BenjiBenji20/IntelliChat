@@ -46,4 +46,6 @@ app = FastAPI(
 
 # Register routers
 from routers.v1.project_router import router as project_router
+from routers.v1.project_invitation_router import router as project_invitation_router
 app.include_router(project_router)
+app.include_router(project_invitation_router)

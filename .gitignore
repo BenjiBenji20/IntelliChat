@@ -6,3 +6,5 @@ chroma_db/
 docs/
 
 test_code/
+
+requirements_bundle.txt
