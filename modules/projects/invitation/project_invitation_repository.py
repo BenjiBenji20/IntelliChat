@@ -1,19 +1,15 @@
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
-
 from sqlalchemy import and_, select
 from fastapi import HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from base.base_crud_repository import BaseCrudRepository
 from models.project import Project
 from models.project_invitation import ProjectInvitation
 from models.profile import Profile
-
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from models.project_member import ProjectMember
-from modules.structure.project_repository import ProjectRepository
-
+from modules.projects.project.project_repository import ProjectRepository
 
 
 class ProjectInvitationRepository(BaseCrudRepository[ProjectInvitation]):
