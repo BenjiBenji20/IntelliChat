@@ -13,6 +13,7 @@ class Chatbot(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("profiles.id", ondelete="CASCADE"), nullable=False)
     project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     application_name = Column(String(100), nullable=False)
+    has_memory = Column(Boolean, nullable=False, default=False)
     system_prompt = Column(String, nullable=False)
     temperature = Column(Numeric(3, 2), nullable=False, default=0.70)
     llm_name = Column(String(100), nullable=False, default="openai/gpt-oss-120b")
