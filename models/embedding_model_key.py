@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, ForeignKey, String, Index
+from sqlalchemy import Column, ForeignKey, Numeric, String, Index
 from sqlalchemy.dialects.postgresql import UUID, TIMESTAMP
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
@@ -14,6 +14,7 @@ class EmbeddingModelKey(Base):
     chatbot_id = Column(UUID(as_uuid=True), ForeignKey("chatbots.id", ondelete="CASCADE"), nullable=False)
     provider = Column(String(255), nullable=False, default="Google Studio AI")
     api_key_encrypted = Column(String, nullable=False)
+    embedding_model_name = Column(String(100), nullable=False, default="models/gemini-embedding-001")
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
