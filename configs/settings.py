@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     
     # api secret key security
     SECRET_KEY_PREFIX: str | None = None
+    ENCRYPTION_KEY: str | None = None
     
     class Config:
         env_file = ".env"
