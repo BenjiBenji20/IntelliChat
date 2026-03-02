@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, ForeignKey, Numeric, String, Index
+from sqlalchemy import Column, ForeignKey, Numeric, String, Index, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID, TIMESTAMP
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
@@ -22,6 +22,7 @@ class LlmKey(Base):
     __table_args__ = (
         Index("idx_llm_keys_user_id", "user_id"),
         Index("idx_llm_keys_chatbot_id", "chatbot_id"),
+        UniqueConstraint("chatbot_id", name="unique_chatbot_llm")
     )
 
     # relationships

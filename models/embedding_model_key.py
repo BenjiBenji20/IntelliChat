@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, ForeignKey, Numeric, String, Index
+from sqlalchemy import Column, ForeignKey, String, Index, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID, TIMESTAMP
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
@@ -21,6 +21,7 @@ class EmbeddingModelKey(Base):
     __table_args__ = (
         Index("idx_embedding_model_keys_user_id", "user_id"),
         Index("idx_embedding_model_keys_chatbot_id", "chatbot_id"),
+        UniqueConstraint("chatbot_id", "unique_chatbot_embedding")
     )
 
     # relationships
