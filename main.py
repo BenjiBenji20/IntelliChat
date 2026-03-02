@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from sqlalchemy import text
+from fastapi.middleware.cors import CORSMiddleware
 
 from configs.settings import settings
 from db.db_session import engine
@@ -41,6 +42,14 @@ async def life_span(app: FastAPI):
 app = FastAPI(
     title=settings.APP_NAME,
     lifespan=life_span
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[settings.CORS_DEV_ORIGIN, settings.CORS_PROD_ORIGIN],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],  # Allows all headers
 )
 
 

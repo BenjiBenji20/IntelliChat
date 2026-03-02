@@ -7,6 +7,9 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     ENV: Literal["dev", "prod", "test"] = "dev"
     
+    CORS_DEV_ORIGIN: str | None = None
+    CORS_PROD_ORIGIN: str | None = None
+    
     # db settings
     # temporarily nullable for successfully deployment in GCP cloud run 
     POSTGRES_USER: str | None = None
