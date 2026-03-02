@@ -50,7 +50,10 @@ class ChatbotAPIKeyService:
                 chatbot_id=state["chatbot_id"],
                 chatbot_completed=state["chatbot_completed"],
                 llm_completed=state["llm_completed"],
-                embedding_completed=state["embedding_completed"]
+                embedding_completed=state["embedding_completed"],
+                chatbot_data=state.get("chatbot_data"),
+                llm_data=state.get("llm_data"),
+                embedding_data=state.get("embedding_data")
             )
             
         except HTTPException:

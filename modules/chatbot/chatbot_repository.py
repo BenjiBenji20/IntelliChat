@@ -22,21 +22,7 @@ class ChatbotRepository(BaseCrudRepository[Chatbot]):
     async def get_chatbot_setup_status(self, project_id: UUID):
         try:
             stmt = (
-                select(
-                    Chatbot.id.label("chatbot_id"),
-                    case(
-                        (Chatbot.id != None, True),
-                        else_=False
-                    ).label("chatbot_completed"),
-                    case(
-                        (LlmKey.id != None, True),
-                        else_=False
-                    ).label("llm_completed"),
-                    case(
-                        (EmbeddingModelKey.id != None, True),
-                        else_=False
-                    ).label("embedding_completed")
-                )
+                select(Chatbot, LlmKey, EmbeddingModelKey)
                 .select_from(Chatbot)
                 .outerjoin(LlmKey, LlmKey.chatbot_id == Chatbot.id)
                 .outerjoin(EmbeddingModelKey, EmbeddingModelKey.chatbot_id == Chatbot.id)
@@ -51,14 +37,36 @@ class ChatbotRepository(BaseCrudRepository[Chatbot]):
                     "chatbot_id": None,
                     "chatbot_completed": False,
                     "llm_completed": False,
-                    "embedding_completed": False
+                    "embedding_completed": False,
+                    "chatbot_data": None,
+                    "llm_data": None,
+                    "embedding_data": None
                 }
 
+            chatbot, llm, embedding = row
+
             return {
-                "chatbot_id": row.chatbot_id,
-                "chatbot_completed": row.chatbot_completed,
-                "llm_completed": row.llm_completed,
-                "embedding_completed": row.embedding_completed
+                "chatbot_id": chatbot.id if chatbot else None,
+                "chatbot_completed": chatbot is not None,
+                "llm_completed": llm is not None,
+                "embedding_completed": embedding is not None,
+                "chatbot_data": {
+                    "id": chatbot.id,
+                    "application_name": chatbot.application_name,
+                    "has_memory": chatbot.has_memory,
+                    "system_prompt": chatbot.system_prompt
+                } if chatbot else None,
+                "llm_data": {
+                    "id": llm.id,
+                    "provider": llm.provider,
+                    "llm_name": llm.llm_name,
+                    "temperature": llm.temperature
+                } if llm else None,
+                "embedding_data": {
+                    "id": embedding.id,
+                    "provider": embedding.provider,
+                    "embedding_model_name": embedding.embedding_model_name
+                } if embedding else None
             }
 
         except Exception as e:

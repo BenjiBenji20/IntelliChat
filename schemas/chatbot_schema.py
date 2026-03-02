@@ -8,6 +8,9 @@ class ChatbotStateSchema(BaseModel):
     chatbot_completed: bool
     llm_completed: bool
     embedding_completed: bool
+    chatbot_data: dict | None = None
+    llm_data: dict | None = None
+    embedding_data: dict | None = None
 
 
 class CreateRequestChatbotSchema(BaseModel):
