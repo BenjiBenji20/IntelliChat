@@ -112,18 +112,13 @@ class ChatbotAPIKeyService:
             
             try:
                 # test the model if it has token
-                test_api_key = await asyncio.to_thread(
+                await asyncio.to_thread(
                     self.test_llm_api_key,
                     raw_llm_key,
                     payload_dict["llm_name"],
                     payload_dict.get("temperature", 0.70)
                 )
-                
-                if test_api_key is None:
-                    raise HTTPException(
-                        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                        detail=f"LLM API key failed."
-                    )
+
             except Exception:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -218,6 +213,225 @@ class ChatbotAPIKeyService:
                 updated_at=embedding_model_key.updated_at
             )
         
+        except HTTPException:
+            raise
+        except Exception as e:
+            await self.db.rollback()
+            raise e
+    
+
+    async def update_chatbot_identity(
+        self, payload: UpdateRequestChatbotSchema
+    ) -> ResponseChatbotSchema:
+        """
+        Not to update: id, user_id, created_at and original project_id
+        """
+        try:
+            payload_dict = payload.model_dump(exclude_unset=True) # only fields client actually sent
+            project_id = payload_dict["project_id"]
+            
+            # Strip out protected fields from payload
+            protected_fields = {"id", "user_id", "project_id", "created_at"}
+            update_data = {k: v for k, v in payload_dict.items() if k not in protected_fields}
+                        
+            if not update_data:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="No valid fields provided for Chatbot update."
+                )
+                
+            chatbot: Chatbot = await self.chatbot_repo.patch_chatbot_identity(
+                project_id=project_id, payload=update_data
+            )
+            
+            if chatbot is None:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    detail=f"Chatbot {update_data["application_name"]} failed to update."
+                )
+                
+            return ResponseChatbotSchema(
+                id=chatbot.id,
+                user_id=chatbot.user_id,
+                project_id=chatbot.project_id,
+                application_name=chatbot.application_name,
+                has_memory=chatbot.has_memory,
+                system_prompt=chatbot.system_prompt,
+                is_active=chatbot.is_active,
+                created_at=chatbot.created_at,
+                updated_at=chatbot.updated_at
+            )
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            await self.db.rollback()
+            raise e
+    
+    
+    async def update_llm_api_key(
+        self, payload: UpdateRequestLlmSchema
+    ) -> ResponseLlmSchema:
+        """
+        Update: llm_keys
+        Not to update: id, user_id, created_at and original chatbot_id
+        
+        Validation:
+        Pass API key with model name undergoes minimal test call
+        Broken API key wont reach the repo
+        """
+        try:
+            payload_dict = payload.model_dump(exclude_unset=True) # only fields client actually sent
+            raw_llm_key = payload_dict.get("api_key", None)
+            
+            if raw_llm_key:
+                # test new api key
+                try:
+                    # test the model if it has token
+                    await asyncio.to_thread(
+                        self.test_llm_api_key,
+                        raw_llm_key,
+                        payload_dict["llm_name"],
+                        payload_dict.get("temperature", 0.70)
+                    )
+    
+                except Exception:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Your new API key is broken. Failed update."
+                    )
+                
+                if settings.ENCRYPTION_KEY is None:
+                    raise ValueError("Encryption key not set.")
+                
+                # encrypt updated api key if there is 
+                if payload_dict["api_key"]:
+                    payload_dict.update({'api_key_encrypted': self.encrypt_api_key(
+                        encryption_key=settings.ENCRYPTION_KEY,
+                        api_key_string=raw_llm_key
+                    )})
+                    payload_dict.pop("api_key") # remove the raw api_key
+            
+            project_id = payload_dict["project_id"]
+            
+            # Strip out protected fields from payload
+            protected_fields = {"id", "user_id", "chatbot_id", "created_at"}
+            update_data = {k: v for k, v in payload_dict.items() if k not in protected_fields}
+                        
+            if not update_data:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="No valid fields provided for LLM API key update."
+                )
+                
+            llm_key: LlmKey = await self.chatbot_repo.patch_llm_key(
+                project_id=project_id, payload=update_data
+            )
+            
+            if llm_key is None:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    detail=f"LLM API key failed to update."
+                )
+                
+            return ResponseLlmSchema(
+                id=llm_key.id,
+                user_id=llm_key.user_id,
+                chatbot_id=llm_key.chatbot_id,
+                api_key=llm_key.api_key_encrypted,
+                llm_name=llm_key.llm_name,
+                temperature=llm_key.temperature,
+                provider=llm_key.provider,
+                created_at=llm_key.created_at,
+                updated_at=llm_key.updated_at, 
+            )
+                    
+        except HTTPException:
+            raise
+        except Exception as e:
+            await self.db.rollback()
+            raise e
+    
+    
+    async def update_embedding_model_api_key(
+        self, payload: UpdateRequestEmbeddingModelSchema
+    ) -> ResponseEmbbedingModelSchema:
+        """
+        Update: embedding_model_keys
+        Not to update: id, user_id, created_at and original chatbot_id
+        
+        Validation:
+        Pass API key with model name undergoes minimal test call
+        Broken API key wont reach the repo
+        """
+        try:
+            payload_dict = payload.model_dump(exclude_unset=True) # only fields client actually sent
+            raw_embedding_model_key = payload_dict.get("api_key", None)
+            
+            if raw_embedding_model_key:
+                # test new api key
+                try:
+                    test_embedding_model = await asyncio.to_thread(
+                        self.test_embedding_model_api_key,
+                        raw_embedding_model_key,
+                        payload_dict["embedding_model_name"],
+                    )
+                except Exception:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Embedding Model API key is invalid or failed to authenticate."
+                    )
+                    
+                if test_embedding_model["status"] != "success":
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Embedding Model API key failed: empty embedding returned."
+                    )
+                
+                if settings.ENCRYPTION_KEY is None:
+                    raise ValueError("Encryption key not set.")
+                            
+                # encrypt updated api key if there is 
+                if payload_dict["api_key"]:
+                    payload_dict.update({'api_key_encrypted': self.encrypt_api_key(
+                        encryption_key=settings.ENCRYPTION_KEY,
+                        api_key_string=raw_embedding_model_key
+                    )})
+                    payload_dict.pop("api_key") # remove the raw api_key
+            
+            project_id = payload_dict["project_id"]
+            
+            # Strip out protected fields from payload
+            protected_fields = {"id", "user_id", "chatbot_id", "created_at"}
+            update_data = {k: v for k, v in payload_dict.items() if k not in protected_fields}
+                        
+            if not update_data:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="No valid fields provided for Embedding Model API key update."
+                )
+                
+            embedding_model_key: EmbeddingModelKey = await self.chatbot_repo.patch_embedding_model_key(
+                project_id=project_id, payload=update_data
+            )
+            
+            if embedding_model_key is None:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    detail=f"Embedding Model API key failed to update."
+                )
+                
+            return ResponseEmbbedingModelSchema(
+                id=embedding_model_key.id,
+                user_id=embedding_model_key.user_id,
+                chatbot_id=embedding_model_key.chatbot_id,
+                api_key=embedding_model_key.api_key_encrypted,
+                embedding_model_name=embedding_model_key.embedding_model_name,
+                provider=embedding_model_key.provider,
+                created_at=embedding_model_key.created_at,
+                updated_at=embedding_model_key.updated_at
+            )
+                    
         except HTTPException:
             raise
         except Exception as e:
