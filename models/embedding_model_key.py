@@ -21,7 +21,7 @@ class EmbeddingModelKey(Base):
     __table_args__ = (
         Index("idx_embedding_model_keys_user_id", "user_id"),
         Index("idx_embedding_model_keys_chatbot_id", "chatbot_id"),
-        UniqueConstraint("chatbot_id", "unique_chatbot_embedding")
+        # UniqueConstraint("chatbot_id", "unique_chatbot_embedding")
     )
 
     # relationships

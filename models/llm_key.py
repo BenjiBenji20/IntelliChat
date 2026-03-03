@@ -22,7 +22,7 @@ class LlmKey(Base):
     __table_args__ = (
         Index("idx_llm_keys_user_id", "user_id"),
         Index("idx_llm_keys_chatbot_id", "chatbot_id"),
-        UniqueConstraint("chatbot_id", name="unique_chatbot_llm")
+        # UniqueConstraint("chatbot_id", name="unique_chatbot_llm")
     )
 
     # relationships
