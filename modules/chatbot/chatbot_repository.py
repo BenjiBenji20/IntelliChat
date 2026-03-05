@@ -1,7 +1,7 @@
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
-from sqlalchemy import select, case
+from sqlalchemy import select, case, and_
 
 from base.base_crud_repository import BaseCrudRepository
 from models.chatbot import Chatbot
@@ -182,3 +182,45 @@ class ChatbotRepository(BaseCrudRepository[Chatbot]):
             await self.db.rollback()
             raise e
         
+
+    async def get_models_identities(self, chatbot_id: UUID) -> dict:
+        try:
+            stmt = (
+                select(
+                    LlmKey.api_key_encrypted.label("llm_encrypted_key"),
+                    LlmKey.llm_name,
+                    LlmKey.temperature,
+                    LlmKey.provider.label("llm_provider"),
+                    EmbeddingModelKey.api_key_encrypted.label("embedding_encrypted_key"),
+                    EmbeddingModelKey.embedding_model_name,
+                    EmbeddingModelKey.provider.label("embedding_provider")
+                )
+                .select_from(LlmKey)
+                .join(EmbeddingModelKey, EmbeddingModelKey.chatbot_id == LlmKey.chatbot_id)
+                .where(LlmKey.chatbot_id == chatbot_id)
+            )
+
+            result = await self.db.execute(stmt)
+            row = result.first()
+
+            if row is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Chatbot model identity not found."
+                )
+
+            return {
+                "llm_encrypted_key": row.llm_encrypted_key,
+                "llm_model_name": row.llm_name,
+                "llm_temperature": row.temperature,
+                "llm_provider": row.llm_provider,
+                "embedding_model_encrypted_key": row.embedding_encrypted_key,
+                "embedding_model_name": row.embedding_model_name,
+                "embedding_model_provider": row.embedding_provider
+            }
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            await self.db.rollback()
+            raise e
