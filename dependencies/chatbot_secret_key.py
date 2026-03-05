@@ -30,7 +30,7 @@ async def intellichat_secret(
             )
     
         # Hash the incoming raw key
-        hashed_key = hashlib.sha256(secret_key.strip(settings.SECRET_KEY_PREFIX).encode()).hexdigest()
+        hashed_key = hashlib.sha256(secret_key.encode()).hexdigest()
 
         # query in db using project_id
         stmt = (
