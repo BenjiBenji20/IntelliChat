@@ -30,6 +30,7 @@ class RequestChat(BaseModel):
 class ResponseChat(BaseModel):
     role: str = "assistant"
     message: str
+    environment: str = "development"
     created_at: datetime
 
 

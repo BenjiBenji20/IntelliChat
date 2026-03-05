@@ -20,7 +20,8 @@ class ChatService:
         self,
         chat: RequestChat,
         project_id: UUID,
-        chatbot_id: UUID
+        chatbot_id: UUID,
+        environment: str = "development"
     ) -> ResponseChat:
         try:
             message: str = chat.message
@@ -60,6 +61,7 @@ class ChatService:
             return ResponseChat(
                 role=chat.role.lower(),
                 message=response,
+                environment=environment,
                 created_at=datetime.now(timezone.utc)
             )
 
