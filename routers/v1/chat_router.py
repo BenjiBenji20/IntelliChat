@@ -15,27 +15,6 @@ router = APIRouter(
 )
 
 
-@router.post("/{project_id}/{chatbot_id}", response_model=ResponseChat)
-async def intellichat(
-    project_id: UUID,
-    chatbot_id: UUID,
-    chat: RequestChat,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db),
-    _: None = Depends(intellichat_secret)
-):
-    """
-    User/production endpoint    
-    """
-    service = ChatService(db)
-    return await service.chat(
-        chat=chat,
-        project_id=project_id,
-        chatbot_id=chatbot_id,
-        environment="production"
-    )
-    
-    
 @router.post("/api/chat-ai/test/{project_id}/{chatbot_id}", response_model=ResponseChat)
 async def test_intellichat(
     project_id: UUID,
@@ -55,7 +34,23 @@ async def test_intellichat(
         environment="development"
     )
 
-"""
-TODO:
-    - test endpoint
-"""
+
+@router.post("/{project_id}/{chatbot_id}", response_model=ResponseChat)
+async def intellichat(
+    project_id: UUID,
+    chatbot_id: UUID,
+    chat: RequestChat,
+    request: Request,
+    db: AsyncSession = Depends(get_async_db),
+    _: None = Depends(intellichat_secret)
+):
+    """
+    User/production endpoint    
+    """
+    service = ChatService(db)
+    return await service.chat(
+        chat=chat,
+        project_id=project_id,
+        chatbot_id=chatbot_id,
+        environment="production"
+    )
