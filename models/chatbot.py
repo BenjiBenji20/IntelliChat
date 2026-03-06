@@ -14,7 +14,6 @@ class Chatbot(Base):
     project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     application_name = Column(String(100), nullable=False)
     has_memory = Column(Boolean, nullable=False, default=False)
-    system_prompt = Column(String, nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
@@ -35,4 +34,5 @@ class Chatbot(Base):
     embedding_model_keys = relationship("EmbeddingModelKey", back_populates="chatbot", cascade="all, delete")
     llm_keys = relationship("LlmKey", back_populates="chatbot", cascade="all, delete")
     project = relationship("Project", back_populates="chatbots", uselist=False)
+    chatbot_behavior = relationship("ChatbotBehavior", back_populates="chatbot", cascade="all, delete", uselist=False)
     

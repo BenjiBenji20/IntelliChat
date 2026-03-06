@@ -36,4 +36,5 @@ class Profile(Base):
     project_memberships = relationship("ProjectMember", foreign_keys="ProjectMember.user_id", back_populates="user", cascade="all, delete")
     received_invitations = relationship("ProjectInvitation", foreign_keys="ProjectInvitation.invited_username", back_populates="invited_user", cascade="all, delete")
     sent_invitations = relationship("ProjectInvitation", foreign_keys="ProjectInvitation.invited_by", back_populates="inviter", cascade="all, delete")
+    chatbot_behaviors = relationship("ChatbotBehavior", back_populates="profile", cascade="all, delete")
     
