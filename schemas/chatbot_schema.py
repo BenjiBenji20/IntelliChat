@@ -49,13 +49,11 @@ class CreateRequestChatbotSchema(BaseModel):
     project_id: UUID
     application_name: str = Field(..., max_length=100)
     has_memory: bool = False
-    system_prompt: str | None = None
     
 class UpdateRequestChatbotSchema(BaseModel):
     project_id: UUID
     application_name: str = Field(None, max_length=100)
     has_memory: bool | None = None
-    system_prompt: str | None = None
     
 class ResponseChatbotSchema(CreateRequestChatbotSchema):
     id: UUID

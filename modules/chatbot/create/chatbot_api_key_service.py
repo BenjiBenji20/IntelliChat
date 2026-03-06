@@ -85,7 +85,6 @@ class ChatbotAPIKeyService:
                 project_id=chatbot.project_id,
                 application_name=chatbot.application_name,
                 has_memory=chatbot.has_memory,
-                system_prompt=chatbot.system_prompt,
                 is_active=chatbot.is_active,
                 created_at=chatbot.created_at,
                 updated_at=chatbot.updated_at
@@ -259,7 +258,6 @@ class ChatbotAPIKeyService:
                 project_id=chatbot.project_id,
                 application_name=chatbot.application_name,
                 has_memory=chatbot.has_memory,
-                system_prompt=chatbot.system_prompt,
                 is_active=chatbot.is_active,
                 created_at=chatbot.created_at,
                 updated_at=chatbot.updated_at

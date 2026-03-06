@@ -53,8 +53,7 @@ class ChatbotRepository(BaseCrudRepository[Chatbot]):
                 "chatbot_data": {
                     "id": chatbot.id,
                     "application_name": chatbot.application_name,
-                    "has_memory": chatbot.has_memory,
-                    "system_prompt": chatbot.system_prompt
+                    "has_memory": chatbot.has_memory
                 } if chatbot else None,
                 "llm_data": {
                     "id": llm.id,
