@@ -21,6 +21,7 @@ from models.llm_key import LlmKey
 from models.project import Project
 from models.project_member import ProjectMember
 from models.project_invitation import ProjectInvitation
+from models.chatbot_behavior import ChatbotBehavior
 
 @asynccontextmanager
 async def life_span(app: FastAPI):
