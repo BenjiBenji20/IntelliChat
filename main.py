@@ -53,7 +53,7 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
-
+ 
 # Register routers
 from routers.v1.project_router import router as project_router
 from routers.v1.project_invitation_router import router as project_invitation_router
