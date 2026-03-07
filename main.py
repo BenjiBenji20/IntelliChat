@@ -59,7 +59,7 @@ from routers.v1.project_router import router as project_router
 from routers.v1.project_invitation_router import router as project_invitation_router
 from routers.v1.project_member_router import router as project_member_router
 from routers.v1.chatbot_api_key_router import router as chatbot_api_key_router
-from routers.v1.chat_router import router as chat_ai_router
+from routers.v1.chatbot_router import router as chat_ai_router
 app.include_router(project_router)
 app.include_router(project_invitation_router)
 app.include_router(project_member_router)
