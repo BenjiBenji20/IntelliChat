@@ -100,7 +100,7 @@ class ChatbotAPIKeyService:
         Broken API key wont reach the repo
         """
         try:
-            payload_dict = payload.model_dump(exclude_unset=True) # only fields client actually sent
+            payload_dict = payload.model_dump(exclude_unset=True, exclude_none=True) # only fields client actually sent
             raw_llm_key = payload_dict.get("api_key", None)
             
             if raw_llm_key:
@@ -203,14 +203,11 @@ class ChatbotAPIKeyService:
             max_tokens=1024,
             stream=True
         )
-        
-        if test_llm is None:
-            return None
-        
+
         # concat chunks as they arrive
         response = ""
         for reply in test_llm:
             if reply.choices[0].delta.content:
                 response += reply.choices[0].delta.content
-        return response
+        return response or None
     
