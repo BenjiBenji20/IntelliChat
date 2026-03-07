@@ -45,11 +45,4 @@ async def remove_member(
         user_id=user_id, current_user_id=current_user_id, 
         project_id=project_id
     )
-    
-"""
-TODO:
-    Remove member (owner) - 
-    Update member role (owner) - 
-    Regenerate API (owner) - 
-    Leave (any one) - to test
-"""
+ 

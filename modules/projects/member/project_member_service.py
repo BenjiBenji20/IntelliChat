@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from models.project import Project
 from modules.projects.member.project_member_repository import ProjectMemberRepository
 from modules.projects.project.project_repository import ProjectRepository
-from schemas.project_schema import *
+from modules.projects.project.project_schema import *
 
 class ProjectMemberService:
     """

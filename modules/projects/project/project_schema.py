@@ -38,4 +38,3 @@ class ProjectPatchSchema(BaseModel):
     name: Optional[str] = Field(None, max_length=100)
     description: Optional[str] = None
     is_active: Optional[bool] = None
-

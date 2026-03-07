@@ -5,7 +5,7 @@ from uuid import UUID
 from db.db_session import get_async_db
 from dependencies.auth import get_current_user
 from modules.projects.invitation.project_invitation_service import ProjectInvitationService
-from schemas.project_invitation_schema import *
+from modules.projects.invitation.project_invitation_schema import *
 
 router = APIRouter(
     prefix="/api/project-invitations",

@@ -3,8 +3,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from modules.projects.invitation.project_invitation_repository import ProjectInvitationRepository
 from modules.projects.project.project_repository import ProjectRepository
-from schemas.project_invitation_schema import *
-from schemas.project_schema import *
+from modules.projects.invitation.project_invitation_schema import *
+from modules.projects.project.project_schema import *
 
 class ProjectInvitationService:
     def __init__(self, db: AsyncSession):

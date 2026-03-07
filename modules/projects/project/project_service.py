@@ -8,7 +8,7 @@ from models.project import Project
 from models.project_member import ProjectMember
 from modules.projects.member.project_member_repository import ProjectMemberRepository
 from modules.projects.project.project_repository import ProjectRepository
-from schemas.project_schema import *
+from modules.projects.project.project_schema import *
 
 class ProjectService:
     """

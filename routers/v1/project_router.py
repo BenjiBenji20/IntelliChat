@@ -5,7 +5,7 @@ from uuid import UUID
 from db.db_session import get_async_db
 from dependencies.auth import get_current_user
 from modules.projects.project.project_service import ProjectService
-from schemas.project_schema import (
+from modules.projects.project.project_schema import (
     CreateProjectSchema,
     ResponseProjectSchema,
 )
