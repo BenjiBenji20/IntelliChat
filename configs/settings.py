@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     SECRET_KEY_PREFIX: str | None = None
     ENCRYPTION_KEY: str | None = None
     
+    # AI api
+    LLM_API_KEY: str | None = None
+    LLM_NAME: str | None = None
+    
     class Config:
         env_file = ".env"
         extra = "ignore"
