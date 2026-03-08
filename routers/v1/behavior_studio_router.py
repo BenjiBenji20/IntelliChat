@@ -1,0 +1,134 @@
+from fastapi import APIRouter, Depends, status
+from sqlalchemy.ext.asyncio import AsyncSession
+from uuid import UUID
+
+from db.db_session import get_async_db
+from dependencies.auth import get_current_user
+from modules.behavior_studio.behavior_studio_service import BehaviorStudioService
+from modules.behavior_studio.behavior_studio_schema import *
+
+router = APIRouter(
+    prefix="/api/behavior-studio",  
+    tags=["IntelliChat AI Behavior Studio Routers"]
+)
+
+"""
+    (POST) create_behavior_studio: Persist all the none null fields
+    (PATCH) update_behavior_studio: Partially update the behavior_studio row with none null fields by chatbot_id
+    (POST) create_prompt: Create (no db) final prompt based on input fields + prompt (extracted from prompt workspace)
+    (POST) ai_suggestions_prompt: Generate a list of suggestions (no db) based prompt
+    (POST) improve_prompt: Improve the prompt (no db) extracted from prompt workspace
+    (POST) simplify_prompt: Simplify prompt (no db) and pass to LLM streamer and return back to client
+"""
+
+@router.post(
+    "/create", 
+    response_model=BehaviorStudioResponseSchema,
+    status_code=status.HTTP_201_CREATED
+)
+async def create_behavior_studio(
+    payload: BehaviorStudioRequestSchema,
+    current_user_id: UUID = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """
+    Pass all the fields in AI Behavior Studio to the service (with db)
+    """
+    service = BehaviorStudioService(db)
+    payload.user_id = current_user_id
+    return await service.create_behavior_studio(payload=payload)
+    
+    
+@router.patch(
+    "/update", 
+    response_model=BehaviorStudioResponseSchema,
+    status_code=status.HTTP_200_OK
+)
+async def update_behavior_studio(
+    payload: BehaviorStudioRequestSchema,
+    current_user_id: UUID = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """
+    Patch update the fields in AI Behavior Studio to the service (with db)
+    """
+    service = BehaviorStudioService(db)
+    payload.user_id = current_user_id
+    return await service.update_behavior_studio(payload=payload)
+
+
+@router.post(
+    "/save/prompt", 
+    response_model=PromptSuggestionResponseSchema,
+    status_code=status.HTTP_201_CREATED
+)
+async def create_prompt(
+    payload: BehaviorStudioRequestSchema,
+    current_user_id: UUID = Depends(get_current_user)
+):
+    """
+    Pass the prompt to the service (no db) and let AI generate suggestions
+    based on the input/select fields 
+    """
+    service = BehaviorStudioService()
+    return await service.create_prompt(payload=payload)
+
+
+@router.post(
+    "/prompt/ai-suggestion", 
+    response_model=SystemPromptResponseSchema,
+    status_code=status.HTTP_200_OK
+)
+async def ai_suggestions_prompt(
+    payload: PromptSuggestionRequestSchema,
+    _: UUID = Depends(get_current_user),
+):
+    """
+    Pass the prompt + suggestions to the service (no db) and let AI improve the 
+    prompt based on the selected suggestions 
+    """
+    service = BehaviorStudioService()
+    return await service.ai_suggestions_prompt(payload=payload)
+
+
+@router.post(
+    "/prompt/improve", 
+    response_model=SystemPromptResponseSchema,
+    status_code=status.HTTP_200_OK
+)
+async def improve_prompt(
+    payload: SystemPromptRequestSchema,
+    _: UUID = Depends(get_current_user),
+):
+    """
+    Pass the prompt to the service (no db) and let AI rephrase the prompt
+    """
+    service = BehaviorStudioService()
+    return await service.improve_prompt(payload=payload)
+
+
+@router.post(
+    "/prompt/simplify", 
+    response_model=SystemPromptResponseSchema,
+    status_code=status.HTTP_200_OK
+)
+async def simplify_prompt(
+    payload: SystemPromptRequestSchema,
+    _: UUID = Depends(get_current_user),
+):
+    """
+    Pass the prompt to the service (no db) and let AI simplify the prompt
+    """
+    service = BehaviorStudioService()
+    return await service.simplify_prompt(payload=payload)
+
+
+"""
+TODO:
+    Route: (POST) Create To pass all Behavior Studio fields to service - to test
+    Route: (PATCH) Patch To pass all Behavior Studio fields to service - to test
+    Route: (POST) trigger to create suggestions based on System Prompt - to test
+    Route: (POST) trigger to improve System Prompt - to test
+    Route: (POST) trigger to simplify System Prompt - to test
+    Route: (POST) trigger to ai suggestions to prompt - to test
+"""
