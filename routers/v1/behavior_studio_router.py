@@ -121,14 +121,3 @@ async def simplify_prompt(
     """
     service = BehaviorStudioService()
     return await service.simplify_prompt(payload=payload)
-
-
-"""
-TODO:
-    Route: (POST) Create To pass all Behavior Studio fields to service - to test
-    Route: (PATCH) Patch To pass all Behavior Studio fields to service - to test
-    Route: (POST) trigger to create suggestions based on System Prompt - to test
-    Route: (POST) trigger to improve System Prompt - to test
-    Route: (POST) trigger to simplify System Prompt - to test
-    Route: (POST) trigger to ai suggestions to prompt - to test
-"""
