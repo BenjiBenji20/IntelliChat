@@ -1,3 +1,13 @@
+import os
+import logging
+
+# cloud deployment logging 
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
+logger.debug(f"Starting app - PORT from env: {os.environ.get('PORT', 'not set')}")
+logger.debug(f"Binding to 0.0.0.0:{os.environ.get('PORT', '8080')}")
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from sqlalchemy import text
