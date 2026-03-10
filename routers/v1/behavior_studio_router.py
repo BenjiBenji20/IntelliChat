@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 
@@ -34,11 +34,16 @@ async def create_behavior_studio(
     """
     Pass all the fields in AI Behavior Studio to the service (with db)
     """
+    if not payload.chatbot_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Configure project's chatbot first before accessing AI Behavior Studio."
+        )
+    
     service = BehaviorStudioService(db)
-    payload.user_id = current_user_id
     return await service.create_behavior_studio(payload=payload)
     
-    
+
 @router.patch(
     "/update", 
     response_model=BehaviorStudioResponseSchema,
@@ -52,8 +57,13 @@ async def update_behavior_studio(
     """
     Patch update the fields in AI Behavior Studio to the service (with db)
     """
+    if not payload.chatbot_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Configure project's chatbot first before accessing AI Behavior Studio."
+        )
+    
     service = BehaviorStudioService(db)
-    payload.user_id = current_user_id
     return await service.update_behavior_studio(payload=payload)
 
 
@@ -70,6 +80,12 @@ async def create_prompt(
     Pass the prompt to the service (no db) and let AI generate suggestions
     based on the input/select fields 
     """
+    if not payload.chatbot_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Configure project's chatbot first before accessing AI Behavior Studio."
+        )
+    
     service = BehaviorStudioService()
     return await service.create_prompt(payload=payload)
 
@@ -87,6 +103,12 @@ async def ai_suggestions_prompt(
     Pass the prompt + suggestions to the service (no db) and let AI improve the 
     prompt based on the selected suggestions 
     """
+    if not payload.chatbot_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Configure project's chatbot first before accessing AI Behavior Studio."
+        )
+        
     service = BehaviorStudioService()
     return await service.ai_suggestions_prompt(payload=payload)
 
@@ -103,9 +125,15 @@ async def improve_prompt(
     """
     Pass the prompt to the service (no db) and let AI rephrase the prompt
     """
+    if not payload.chatbot_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Configure project's chatbot first before accessing AI Behavior Studio."
+        )
+        
     service = BehaviorStudioService()
     return await service.improve_prompt(payload=payload)
-
+        
 
 @router.post(
     "/prompt/simplify", 
@@ -119,5 +147,34 @@ async def simplify_prompt(
     """
     Pass the prompt to the service (no db) and let AI simplify the prompt
     """
+    if not payload.chatbot_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Configure project's chatbot first before accessing AI Behavior Studio."
+        )
+        
     service = BehaviorStudioService()
     return await service.simplify_prompt(payload=payload)
+
+
+@router.get(
+    "/{chatbot_id}", 
+    response_model=BehaviorStudioResponseSchema,
+    status_code=status.HTTP_200_OK
+)
+async def get_behavior_studio(
+    chatbot_id: UUID,
+    _: UUID = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """
+    Get the behavior of the chatbot by chatbot_id
+    """
+    if not chatbot_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Configure project's chatbot first before accessing AI Behavior Studio."
+        )
+    
+    service = BehaviorStudioService(db)
+    return await service.get_behavior_studio(chatbot_id=chatbot_id)
