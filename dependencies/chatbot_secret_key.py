@@ -10,7 +10,7 @@ from configs.settings import settings
 from db.db_session import get_async_db
 from models.project import Project
 
-secret_key_scheme = APIKeyHeader(name="Intellichat-Secret")
+secret_key_scheme = APIKeyHeader(name=settings.API_KEY_HEADER_NAME)
 
 async def intellichat_secret(
         project_id: UUID,
