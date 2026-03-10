@@ -19,8 +19,13 @@ class Settings(BaseSettings):
     POSTGRES_DATABASE: str | None = None
     
     # api secret key security
+    API_KEY_HEADER_NAME: str | None = "Anonymous"
+    
     SECRET_KEY_PREFIX: str | None = None
     ENCRYPTION_KEY: str | None = None
+    
+    UPSTASH_REDIS_URL: str | None = None
+    UPSTASH_REDIS_TOKEN: str | None = None
     
     # AI api
     LLM_API_KEY: str | None = None
