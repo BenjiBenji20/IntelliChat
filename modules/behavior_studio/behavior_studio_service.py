@@ -147,6 +147,48 @@ class BehaviorStudioService:
             raise e
         
         
+    async def get_behavior_studio(
+        self, chatbot_id: UUID
+    ) -> BehaviorStudioResponseSchema:
+        """
+        Get ChatbotBehavior by chatbot_id
+        """
+        try:
+            from sqlalchemy import select
+            stmt = select(ChatbotBehavior).where(ChatbotBehavior.chatbot_id == chatbot_id)
+            result = await self.db.execute(stmt)
+            behavior: ChatbotBehavior | None = result.scalar_one_or_none()
+            
+            if behavior is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Chatbot behavior not found."
+                )
+                
+            return BehaviorStudioResponseSchema(
+                id=behavior.id,
+                user_id=behavior.user_id,
+                chatbot_id=behavior.chatbot_id,
+                category=behavior.category,
+                target_audience=behavior.target_audience,
+                description=behavior.description,
+                tone=behavior.tone,
+                language=behavior.language,
+                response_style=behavior.response_style,
+                fallback_message=behavior.fallback_message,
+                policy_restriction=behavior.policy_restriction,
+                system_prompt=behavior.system_prompt,
+                created_at=behavior.created_at,
+                updated_at=behavior.updated_at
+            )
+            
+        except HTTPException:
+            raise
+
+        except Exception as e:
+            raise e
+        
+        
     async def create_prompt(
         self, payload: BehaviorStudioRequestSchema
     ) -> PromptSuggestionResponseSchema:
@@ -160,11 +202,11 @@ class BehaviorStudioService:
             4. Return the improved prompt and prompt suggestions.
         """
         try:
-            improved_prompt = await self.get_improved_prompt(payload)
+            prompt = self.fields_transformer(payload)
             
             # convert strings into json array
             raw_suggestions = await self._run_llm(
-                generate_prompt_suggestions, improved_prompt
+                generate_prompt_suggestions, prompt
             )
             
             try:
@@ -173,7 +215,7 @@ class BehaviorStudioService:
                 suggestions = []
             
             return PromptSuggestionResponseSchema(
-                    system_prompt=improved_prompt,
+                    system_prompt=prompt,
                     suggestions=suggestions,
                     created_at=datetime.now(timezone.utc)
                 )
@@ -331,7 +373,6 @@ class BehaviorStudioService:
             if k in FIELD_LABELS and v:
                 prompt_parts.append(f"{FIELD_LABELS[k]}: {v}")
 
-        # Combine structured fields with existing system prompt
         if prompt_parts:
             structured_context = "Configuration Fields:\n" + "\n".join(prompt_parts)
             if system_prompt:
