@@ -9,13 +9,19 @@ from modules.projects.project.project_schema import (
     CreateProjectSchema,
     ResponseProjectSchema,
 )
+from dependencies.rate_limit import rate_limit_by_user
 
 router = APIRouter(
     prefix="/api/projects",
     tags=["Projects"]
 )
 
-@router.post("/create", response_model=ResponseProjectSchema, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/create", 
+    response_model=ResponseProjectSchema, 
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(rate_limit_by_user())]
+)
 async def create_project(
     payload: CreateProjectSchema,
     db: AsyncSession = Depends(get_async_db),
@@ -26,7 +32,11 @@ async def create_project(
     return await service.create_project(owner_id=user_id, data=payload)
 
     
-@router.post("/{project_id}/api-key/{user_id}/new", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{project_id}/api-key/{user_id}/new", 
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(rate_limit_by_user())]
+)
 async def regenerate_api_key(
     project_id: UUID,
     user_id: UUID, # ProjectMember.user_id
@@ -44,7 +54,11 @@ async def regenerate_api_key(
     )
     
     
-@router.post("/leave/{project_id}", status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "/leave/{project_id}", 
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(rate_limit_by_user())]
+)
 async def leave_from_project(  
     project_id: UUID,
     db: AsyncSession = Depends(get_async_db),

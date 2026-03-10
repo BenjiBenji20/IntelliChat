@@ -8,6 +8,7 @@ from dependencies.auth import get_current_user
 from dependencies.chatbot_secret_key import intellichat_secret
 from modules.chatbot.chatbot_service import ChatbotService
 from modules.chatbot.chatbot_schema import *
+from dependencies.rate_limit import rate_limit_by_user, rate_limit_by_api_key
 
 router = APIRouter(
     # prefix="/api/chat" no prefix. this is user base /{domain}/{project_id}/{chatbot_id}
@@ -17,7 +18,8 @@ router = APIRouter(
 @router.get(
     "/api/chat-ai/{project_id}/chatbot-state",
     response_model=ChatbotStateSchema,
-    status_code=status.HTTP_200_OK
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(rate_limit_by_user())]
 )
 async def check_chatbot_step(
     project_id: UUID,
@@ -31,7 +33,8 @@ async def check_chatbot_step(
 @router.post(
     "/api/chat-ai/create/identity", 
     response_model=ResponseChatbotSchema, 
-    status_code=status.HTTP_201_CREATED
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(rate_limit_by_user())]
 )
 async def create_chatbot_identity(
     payload: CreateRequestChatbotSchema,
@@ -46,7 +49,8 @@ async def create_chatbot_identity(
 @router.patch(
     "/api/chat-ai/update/identity",
     response_model=ResponseChatbotSchema,
-    status_code=status.HTTP_200_OK
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(rate_limit_by_user())]
 )
 async def update_chatbot_identity(
     payload: UpdateRequestChatbotSchema,
@@ -61,7 +65,11 @@ async def update_chatbot_identity(
     return await service.update_chatbot_identity(payload)
 
 
-@router.post("/api/chat-ai/test/{project_id}/{chatbot_id}", response_model=ResponseChat)
+@router.post(
+    "/api/chat-ai/test/{project_id}/{chatbot_id}", 
+    response_model=ResponseChat,
+    dependencies=[Depends(rate_limit_by_user())]
+)
 async def test_intellichat(
     project_id: UUID,
     chatbot_id: UUID,
@@ -81,7 +89,11 @@ async def test_intellichat(
     )
 
 
-@router.post("/{project_id}/{chatbot_id}", response_model=ResponseChat)
+@router.post(
+    "/{project_id}/{chatbot_id}", 
+    response_model=ResponseChat,
+    dependencies=[Depends(rate_limit_by_api_key())]
+)
 async def intellichat(
     project_id: UUID,
     chatbot_id: UUID,

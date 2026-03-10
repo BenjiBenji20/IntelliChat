@@ -5,13 +5,18 @@ from uuid import UUID
 from db.db_session import get_async_db
 from dependencies.auth import get_current_user
 from modules.projects.member.project_member_service import ProjectMemberService
+from dependencies.rate_limit import rate_limit_by_user
 
 router = APIRouter(
     prefix="/api/project-members",
     tags=["Project Members"]
 )
 
-@router.patch("/update-role/{project_id}/{user_id}/{new_role}", status_code=status.HTTP_200_OK)
+@router.patch(
+    "/update-role/{project_id}/{user_id}/{new_role}", 
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(rate_limit_by_user())]
+)
 async def update_user_role(
     project_id: UUID,
     user_id: UUID, # ProjectMember.user_id
@@ -29,7 +34,11 @@ async def update_user_role(
         )
 
 
-@router.delete("/delete/{user_id}/{project_id}", status_code=status.HTTP_200_OK)
+@router.delete(
+    "/delete/{user_id}/{project_id}", 
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(rate_limit_by_user())]
+)
 async def remove_member(    
     user_id: UUID, # ProjectMember.user_id
     project_id: UUID,

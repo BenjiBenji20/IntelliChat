@@ -4,12 +4,12 @@ from uuid import UUID
 
 from db.db_session import get_async_db
 from dependencies.auth import get_current_user
-from modules.chatbot.chatbot_service import ChatbotService
 from modules.embedding_model_api_keys.embedding_model_api_keys_service import EmbeddingModelAPIKeyService
 from modules.llm_api_keys.llm_api_keys_service import ChatbotAPIKeyService
 from modules.llm_api_keys.llm_api_keys_schema import *
 from modules.chatbot.chatbot_schema import *
 from modules.embedding_model_api_keys.embedding_model_api_keys_schema import *
+from dependencies.rate_limit import rate_limit_by_user
 
 
 router = APIRouter(
@@ -20,7 +20,8 @@ router = APIRouter(
 @router.post(
     "/upload-llm-key", 
     response_model=ResponseLlmSchema, 
-    status_code=status.HTTP_201_CREATED
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(rate_limit_by_user())]
 )
 async def upload_llm_key(
     payload: CreateRequestLlmSchema,
@@ -35,7 +36,8 @@ async def upload_llm_key(
 @router.post(
     "/upload-embedding-model-key", 
     response_model=ResponseEmbbedingModelSchema, 
-    status_code=status.HTTP_201_CREATED
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(rate_limit_by_user())]
 )
 async def upload_embedding_model_key(
     payload: CreateRequestEmbbedingModelSchema,
@@ -50,7 +52,8 @@ async def upload_embedding_model_key(
 @router.patch(
     "/update/llm-key",
     response_model=ResponseLlmSchema,
-    status_code=status.HTTP_200_OK
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(rate_limit_by_user())]
 )
 async def update_llm_api_key(
     payload: UpdateRequestLlmSchema,
@@ -68,7 +71,8 @@ async def update_llm_api_key(
 @router.patch(
     "/update/embedding-model-key",
     response_model=ResponseEmbbedingModelSchema,
-    status_code=status.HTTP_200_OK
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(rate_limit_by_user())]
 )
 async def update_embedding_model_api_key(
     payload: UpdateRequestEmbeddingModelSchema,

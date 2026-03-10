@@ -6,6 +6,7 @@ from db.db_session import get_async_db
 from dependencies.auth import get_current_user
 from modules.behavior_studio.behavior_studio_service import BehaviorStudioService
 from modules.behavior_studio.behavior_studio_schema import *
+from dependencies.rate_limit import rate_limit_by_user
 
 router = APIRouter(
     prefix="/api/behavior-studio",  
@@ -24,7 +25,8 @@ router = APIRouter(
 @router.post(
     "/create", 
     response_model=BehaviorStudioResponseSchema,
-    status_code=status.HTTP_201_CREATED
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(rate_limit_by_user())]
 )
 async def create_behavior_studio(
     payload: BehaviorStudioRequestSchema,
@@ -47,7 +49,8 @@ async def create_behavior_studio(
 @router.patch(
     "/update", 
     response_model=BehaviorStudioResponseSchema,
-    status_code=status.HTTP_200_OK
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(rate_limit_by_user())]
 )
 async def update_behavior_studio(
     payload: BehaviorStudioRequestSchema,
@@ -70,7 +73,8 @@ async def update_behavior_studio(
 @router.post(
     "/save/prompt", 
     response_model=PromptSuggestionResponseSchema,
-    status_code=status.HTTP_201_CREATED
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(rate_limit_by_user())]
 )
 async def create_prompt(
     payload: BehaviorStudioRequestSchema,
@@ -93,7 +97,8 @@ async def create_prompt(
 @router.post(
     "/prompt/ai-suggestion", 
     response_model=SystemPromptResponseSchema,
-    status_code=status.HTTP_200_OK
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(rate_limit_by_user())]
 )
 async def ai_suggestions_prompt(
     payload: PromptSuggestionRequestSchema,
@@ -116,7 +121,8 @@ async def ai_suggestions_prompt(
 @router.post(
     "/prompt/improve", 
     response_model=SystemPromptResponseSchema,
-    status_code=status.HTTP_200_OK
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(rate_limit_by_user())]
 )
 async def improve_prompt(
     payload: SystemPromptRequestSchema,
@@ -138,7 +144,8 @@ async def improve_prompt(
 @router.post(
     "/prompt/simplify", 
     response_model=SystemPromptResponseSchema,
-    status_code=status.HTTP_200_OK
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(rate_limit_by_user())]
 )
 async def simplify_prompt(
     payload: SystemPromptRequestSchema,
@@ -160,7 +167,8 @@ async def simplify_prompt(
 @router.get(
     "/{chatbot_id}", 
     response_model=BehaviorStudioResponseSchema,
-    status_code=status.HTTP_200_OK
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(rate_limit_by_user())]
 )
 async def get_behavior_studio(
     chatbot_id: UUID,
