@@ -109,6 +109,8 @@ class BehaviorStudioResponseSchema(BehaviorStudioRequestSchema):
 
 class SystemPromptRequestSchema(BaseModel):
     """Extract the text prompt from workspace"""
+    user_id: UUID | None = None
+    chatbot_id: UUID | None = None
     system_prompt: str | None = None
 
     @field_validator('system_prompt')
@@ -144,6 +146,8 @@ class SystemPromptResponseSchema(SystemPromptRequestSchema):
 
 class PromptSuggestionRequestSchema(BaseModel):
     """Extract prompt + suggestions from workspace after 3 secs delay"""
+    user_id: UUID | None = None
+    chatbot_id: UUID | None = None
     system_prompt: str | None = None
     suggestions: list[str] | None = None
 
@@ -215,3 +219,4 @@ class PromptSuggestionRequestSchema(BaseModel):
 
 class PromptSuggestionResponseSchema(PromptSuggestionRequestSchema):
     created_at: datetime
+    
