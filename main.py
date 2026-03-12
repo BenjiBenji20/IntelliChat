@@ -71,9 +71,11 @@ from routers.v1.project_member_router import router as project_member_router
 from routers.v1.chatbot_api_key_router import router as chatbot_api_key_router
 from routers.v1.chatbot_router import router as chat_ai_router
 from routers.v1.behavior_studio_router import router as behavior_studio_router
+from routers.v1.document_router import router as document_router
 app.include_router(project_router)
 app.include_router(project_invitation_router)
 app.include_router(project_member_router)
 app.include_router(chatbot_api_key_router)
 app.include_router(chat_ai_router)
 app.include_router(behavior_studio_router)
+app.include_router(document_router)
