@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     GCS_BUCKET_NAME: str = None
     GCS_UPLOAD_URL_EXPIRY_SECONDS: int = 900
     GCS_DOWNLOAD_URL_EXPIRY_SECONDS: int = 3600
+    MAX_FILE_SIZE_BYTES: int = 52428800
     
     class Config:
         env_file = ".env"
