@@ -1,0 +1,25 @@
+[
+  {
+    "===== REMOVE THIS KEY =====": [
+        "To resolve: Cross-Origin Request Blocked: The Same Origin Policy disallows reading the remote resource... (Reason: CORS header ‘Access-Control-Allow-Origin’ missing)', indicates a Cross-Origin Resource Sharing (CORS) issue. Your web application (UI) is trying to access a resource from your Google Cloud Storage bucket, but the browser's security policy, known as the Same-Origin Policy, is preventing this, you need to configure CORS on your Google Cloud Storage bucket to allow requests from the origin (domain) where your UI is hosted. ",
+        "FOLLOW THIS GUIDE:",
+        "1. Create a CORS Configuration JSON File:", 
+            "You'll define a set of rules in a JSON file that tells your bucket which origins are allowed to access its content, which HTTP methods are permitted, and which headers can be included. USE THIS FILE AND REMOVE THIS GUIDE.",
+        "2. Apply the CORS Configuration to Your Cloud Storage Bucket:",
+            "You will use the gsutil command-line tool to apply this configuration. Ensure gsutil is installed and authenticated:",
+            "IF YOU DON'T HAVE Google Cloud CLI installed in your machine, install from Google Cloud SDK download page: https://cloud.google.com/sdk/docs/install ",
+                "If you don't have gsutil (part of the Google Cloud SDK), you'll need to install it. Make sure you are authenticated to your Google Cloud project with an account that has storage.buckets.update permission for the bucket. You can do this with gcloud auth login and gcloud config set project [YOUR_PROJECT_ID]. ",
+                "Run the gsutil command: Open your terminal or command prompt and execute the following command, replacing my-gcs-bucket-name with your actual bucket name and cors configuration json with the name of your JSON file:",
+                    "gcloud storage buckets update gs://my-gcs-bucket-name --cors-file=PATH_TO_THIS_CORS_CONFIGURATION_JSON_FILE.json",
+        "MAKE SURE TO REPLACE: gs://my-gcs-bucket-name with your actual bucket name and PATH_TO_THIS_CORS_CONFIGURATION_JSON_FILE to the actual path location of your gcs-cors-configuration.json file."
+    ],
+
+
+    "origin": ["https://your-client-app-origin"],
+    "method": ["GET", "HEAD", "PUT", "POST", "DELETE"],
+    "responseHeader": [
+      "Content-Type"
+    ],
+    "maxAgeSeconds": 3600
+  }
+]
