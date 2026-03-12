@@ -111,7 +111,9 @@ async def bulk_confirm_uploads(
     response_model=DocumentListResponseSchema,
     status_code=status.HTTP_200_OK,
     summary="List all documents and statuses for a chatbot (paginated)",
-    dependencies=[Depends(rate_limit_by_user())]
+    dependencies=[Depends(rate_limit_by_user(
+        max_request=60
+    ))]
 )
 async def list_documents(
     chatbot_id: UUID,
