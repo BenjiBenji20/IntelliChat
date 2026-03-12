@@ -1,0 +1,66 @@
+=== Document Repository Integration Test Results ===
+
+--- Test 1: bulk_create_documents — single insert ---
+Document created successfully.
+ID: 5756e3c5-619d-4820-923b-13c18a71d53d
+file_name: test_file_1.txt
+file_type: text/plain
+status: pending
+created_at populated: True
+All field assertions passed: True
+
+--- Test 2: bulk_create_documents — 5 documents ---
+Documents created: 5
+All IDs unique: True
+IDs: ['22577540-5b7b-4968-9fa6-ab4d9b1f6ece', '1f37fb25-18d5-43ad-857d-6ae0924db3f7', 'beb40c49-9d8c-410f-8a34-e317f7d218d9', '72d9e14e-0584-4ce0-abba-5a5105f65743', '82ebf536-f15f-4a5d-8046-332002f6b5d6']
+
+--- Test 3: bulk_create_documents — duplicate file names ---
+Both documents inserted successfully.
+file_name both: duplicate.txt
+IDs are different: True
+
+--- Test 4: get_by_ids_and_chatbot_id — correct chatbot ---
+Requested: 3 documents
+Fetched: 3 documents
+All IDs match: True
+
+--- Test 5: get_by_ids_and_chatbot_id — wrong chatbot ---
+Fetched with wrong chatbot_id: 0 results
+Correctly returned empty: True
+
+--- Test 6: get_by_ids_and_chatbot_id — mixed valid and fake IDs ---
+Requested: 4 IDs (2 real, 2 fake)
+Fetched: 2 documents
+Only real IDs returned: True
+
+--- Test 7: bulk_update_status — update 3 to uploaded ---
+Documents updated: 3
+All statuses are 'uploaded': True
+Statuses: ['uploaded', 'uploaded', 'uploaded']
+
+--- Test 8: bulk_update_status — with non-existent IDs mixed in ---
+Real documents updated correctly: True
+No error raised for fake IDs: True
+
+--- Test 9: get_all_by_chatbot_id — pagination ---
+Total count: 7
+Page 1 (limit=3, offset=0): 3 results
+Page 2 (limit=3, offset=3): 3 results
+Page 3 (limit=3, offset=6): 1 results
+No overlap between pages: True
+
+--- Test 10: get_all_by_chatbot_id — empty chatbot ---
+Documents returned: 0
+Total: 0
+Correctly returned empty: True
+
+--- Test 11: delete — document removed ---
+Document b1d71759-e5f3-4ccf-a296-d2d33d051a66 deleted.
+Fetch after delete returned: 0 results
+Document successfully removed: True
+FK cascade to embeddings_metadata enforced by DB ondelete=CASCADE constraint.
+
+--- Test 12: get_by_document_and_chatbot_id ---
+Found with correct chatbot_id: True
+Returned None for wrong chatbot_id: True
+

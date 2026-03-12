@@ -1,0 +1,23 @@
+=== GCS Service Integration Test Results ===
+
+--- Test Case 1: Happy Path ---
+Upload URL generated successfully.
+Upload Status Code: 200
+Exists after upload: True
+Metadata Size: 82
+Metadata Content-Type: text/plain
+Download URL generated successfully.
+Downloaded Data matches initial file: True
+Exists after delete: False
+
+--- Test Case 2: Reject Unsupported Content Type ---
+Attempted to upload text/plain to a URL signed for image/jpeg.
+Upload Status Code: 403
+Expected rejection (403 Forbidden): True
+
+--- Test Case 3: Check Existence of Non-Existent Object ---
+Exists: False
+Metadata is None: True
+
+--- Test Case 4: Delete Non-Existent Object ---
+Deletion executed silently without throwing handled exceptions.

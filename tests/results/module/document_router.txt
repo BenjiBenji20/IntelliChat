@@ -1,0 +1,53 @@
+=== Document Routes + Service Integration Test Results ===
+
+--- Test 1: Happy Path — full upload flow ---
+POST /bulk-upload-url: 201 ✓
+GCS PUT (2 files): 200 ✓
+POST /bulk-confirm: 200 ✓
+Confirmed count: 2 ✓
+GET /: 200, documents listed ✓
+GET /download: 200, URL valid ✓
+Downloaded content matches: True ✓
+DELETE (2 files): 200 ✓
+
+--- Test 2: Validation — invalid file type ---
+Status code: 422 ✓
+All invalid types correctly rejected: True ✓
+
+--- Test 3: Validation — oversized file ---
+Status code: 422
+Failed list: None
+Results count: 0
+Oversized file correctly handled: True ✓
+
+--- Test 4: Validation — partial failure (mixed valid and invalid) ---
+Total valid: 1 ✓
+Failed: ['invalid.exe'] ✓
+Valid file proceeded, invalid rejected: True ✓
+
+--- Test 5: Confirm — file not in GCS ---
+Confirmed (should be 0): 0 ✓
+Failed (should be 1): 1 ✓
+Reason: File not found in storage. ✓
+
+--- Test 6: Confirm — non-existent document_id ---
+Confirmed (should be 0): 0 ✓
+Failed (should be 1): 1 ✓
+Reason: Document not found. ✓
+
+--- Test 7: List — pagination ---
+Total: 5 ✓
+Page 1 (limit=3): 3 results ✓
+Page 2 (offset=3): 2 results ✓
+No overlap between pages: True ✓
+
+--- Test 8: Delete — removed from GCS and DB ---
+File existed in GCS before delete: True ✓
+DELETE /delete response: 200 ✓
+File exists in GCS after delete: False ✓
+Document removed from DB list: True ✓
+
+--- Test 9: Download — wrong chatbot_id returns 404 ---
+Download with wrong chatbot_id returned: 404 ✓
+Cross-chatbot access correctly blocked: True ✓
+
