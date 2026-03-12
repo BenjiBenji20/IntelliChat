@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from configs.settings import settings
 from models.document import Document
 from modules.documents.document_repository import DocumentRepository
 from modules.documents.document_schema import *
@@ -248,18 +249,47 @@ class DocumentService:
                     # Can't identify which doc failed from exception alone; log and skip
                     continue
                 doc_id, exists = result
-                if exists:
-                    confirmed_ids.append(doc_id)
-                    confirmed_responses.append(
-                        ConfirmUploadResponseSchema(
-                            document_id=doc_id,
-                            chatbot_id=chatbot_id,
-                            status="uploaded",
-                            message="Upload confirmed. Document is queued for processing.",
-                        )
+                doc = doc_map[doc_id]
+                
+                if not exists:
+                    # File never made it to GCS — clean up DB record
+                    await self.document_repo.delete(doc_id)
+                    failed.append({
+                        "document_id": str(doc_id), 
+                        "reason": "File not found in storage. Upload may have failed."
+                    })
+                    continue
+                
+                # File exists — check size
+                metadata = await asyncio.to_thread(
+                    gcs_service.get_object_metadata, doc.storage_path
+                )
+                    
+                # Remove the files larger than max file size. Extract size in object metadata and remove in GCS
+                if metadata and metadata["size"] > settings.MAX_FILE_SIZE_BYTES:
+                    await asyncio.to_thread(
+                        gcs_service.delete_object, 
+                        doc.storage_path
                     )
-                else:
-                    failed.append({"document_id": str(doc_id), "reason": "File not found in storage."})
+                    
+                    await self.document_repo.update_status(doc_id, "failed") # status as failed
+                    
+                    failed.append({
+                        "document_id": str(doc_id), 
+                        "reason": f"File size exceeds maximum allowed {settings.MAX_FILE_SIZE_BYTES} bytes."
+                    })
+                    
+                    continue
+                
+                confirmed_ids.append(doc_id)
+                confirmed_responses.append(
+                    ConfirmUploadResponseSchema(
+                        document_id=doc_id,
+                        chatbot_id=chatbot_id,
+                        status="uploaded",
+                        message="Upload confirmed. Document is queued for processing.",
+                    )
+                )
 
             # Single UPDATE ... WHERE id IN (...) for all confirmed docs
             if confirmed_ids:

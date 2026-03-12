@@ -155,3 +155,16 @@ class DocumentRepository(BaseCrudRepository[Document]):
         
         except Exception as e:
             raise e
+        
+        
+    async def update_status(
+        self, document_id: UUID, status: str
+    ) -> Optional[Document]:
+        await self.db.execute(
+            update(Document)
+            .where(Document.id == document_id)
+            .values(status=status)
+
+        )
+        await self.db.flush()
+        return await self.get_by_id(document_id)

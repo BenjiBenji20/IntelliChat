@@ -12,6 +12,7 @@ ALLOWED_MIME_TYPES: set[str] = {
     "text/plain",
     "text/markdown",
     "application/json",
+    "application/jsonl",
 }
 
 MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB
@@ -68,6 +69,7 @@ class DocumentStatusResponseSchema(BaseModel):
     document_id: UUID = Field(validation_alias="id")
     file_name: str
     file_type: str
+    file_size: int
     status: str
     storage_path: str
     created_at: datetime
