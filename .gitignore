@@ -9,3 +9,7 @@ test_code/
 
 requirements_bundle.txt
 note.txt
+
+intellichat-gcs-service-key.json
+
+tests/module/documents/test_files/*
