@@ -11,5 +11,6 @@ requirements_bundle.txt
 note.txt
 
 intellichat-gcs-service-key.json
+gcs-cors-configs.json
 
 tests/module/documents/test_files/*
