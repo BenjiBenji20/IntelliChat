@@ -53,11 +53,13 @@ class GCSService:
         Generates a V4 signed URL for a GET download.
         """
         blob = self._bucket.blob(object_key)
-
+        file_name = object_key.split("/")[-1]
         url = blob.generate_signed_url(
             version="v4",
             expiration=datetime.timedelta(seconds=SIGNED_URL_DOWNLOAD_EXPIRY_SECONDS),
             method="GET",
+            response_disposition=f'attachment; filename="{file_name}"',
+            response_type="application/octet-stream",
         )
         return url
 
