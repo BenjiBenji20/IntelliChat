@@ -33,8 +33,13 @@ filetype==1.2.0
 flatbuffers==25.12.19
 frozenlist==1.8.0
 fsspec==2026.2.0
+google-api-core==2.30.0
 google-auth==2.48.0
+google-cloud-core==2.5.0
+google-cloud-storage==3.9.0
+google-crc32c==1.8.0
 google-genai==1.65.0
+google-resumable-media==2.8.0
 googleapis-common-protos==1.72.0
 greenlet==3.3.2
 groq==1.0.0
@@ -91,6 +96,7 @@ passlib==1.7.4
 postgrest==2.28.0
 posthog==5.4.0
 propcache==0.4.1
+proto-plus==1.27.1
 protobuf==6.33.5
 psycopg2-binary==2.9.11
 pyasn1==0.6.2
