@@ -1,0 +1,30 @@
+steps:
+# Step 1: Build the Docker image
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['build', '-t', '${_IMAGE}:${SHORT_SHA}', '-f', 'Dockerfile.doc_worker', '.']
+
+# Step 2: Push the Docker image
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['push', '${_IMAGE}:${SHORT_SHA}']
+
+# Step 3: Deploy to Cloud Run
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  entrypoint: gcloud
+  args:
+    - 'run'
+    - 'deploy'
+    - '${_SERVICE_NAME}'
+    - '--image'
+    - '${_IMAGE}:${SHORT_SHA}'
+    - '--region'
+    - '${_SERVICE_REGION}'
+    - '--platform'
+    - 'managed'
+    - '--quiet'
+
+images:
+  - '${_IMAGE}:${SHORT_SHA}'
+
+options:
+  machineType: 'E2_HIGHCPU_8'
+  logging: CLOUD_LOGGING_ONLY
