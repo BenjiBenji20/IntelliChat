@@ -1,5 +1,5 @@
-.env
-venv/
+*.env
+*venv/
 __pycache__/
 *.pyc
 chroma_db/
@@ -13,4 +13,4 @@ note.txt
 intellichat-gcs-service-key.json
 gcs-cors-configs.json
 
-tests/module/documents/test_files/*
+api/tests/module/documents/test_files/*

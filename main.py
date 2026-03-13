@@ -13,25 +13,25 @@ from fastapi import FastAPI
 from sqlalchemy import text
 from fastapi.middleware.cors import CORSMiddleware
 
-from configs.settings import settings
-from db.db_session import engine
+from api.configs.settings import settings
+from api.db.db_session import engine
 
 # Import all models 
-from db.base import Base
-from models.profile import Profile
-from models.chatbot import Chatbot
-from models.document import Document
-from models.embedding_metadata import EmbeddingMetadata
-from models.conversation import Conversation
-from models.message import Message
-from models.api_key import ApiKey
-from models.redis_key import RedisKey
-from models.embedding_model_key import EmbeddingModelKey
-from models.llm_key import LlmKey
-from models.project import Project
-from models.project_member import ProjectMember
-from models.project_invitation import ProjectInvitation
-from models.chatbot_behavior import ChatbotBehavior
+from api.db.base import Base
+from api.models.profile import Profile
+from api.models.chatbot import Chatbot
+from api.models.document import Document
+from api.models.embedding_metadata import EmbeddingMetadata
+from api.models.conversation import Conversation
+from api.models.message import Message
+from api.models.api_key import ApiKey
+from api.models.redis_key import RedisKey
+from api.models.embedding_model_key import EmbeddingModelKey
+from api.models.llm_key import LlmKey
+from api.models.project import Project
+from api.models.project_member import ProjectMember
+from api.models.project_invitation import ProjectInvitation
+from api.models.chatbot_behavior import ChatbotBehavior
 
 @asynccontextmanager
 async def life_span(app: FastAPI):
@@ -65,13 +65,13 @@ app.add_middleware(
 
  
 # Register routers
-from routers.v1.project_router import router as project_router
-from routers.v1.project_invitation_router import router as project_invitation_router
-from routers.v1.project_member_router import router as project_member_router
-from routers.v1.chatbot_api_key_router import router as chatbot_api_key_router
-from routers.v1.chatbot_router import router as chat_ai_router
-from routers.v1.behavior_studio_router import router as behavior_studio_router
-from routers.v1.document_router import router as document_router
+from api.routers.v1.project_router import router as project_router
+from api.routers.v1.project_invitation_router import router as project_invitation_router
+from api.routers.v1.project_member_router import router as project_member_router
+from api.routers.v1.chatbot_api_key_router import router as chatbot_api_key_router
+from api.routers.v1.chatbot_router import router as chat_ai_router
+from api.routers.v1.behavior_studio_router import router as behavior_studio_router
+from api.routers.v1.document_router import router as document_router
 app.include_router(project_router)
 app.include_router(project_invitation_router)
 app.include_router(project_member_router)
