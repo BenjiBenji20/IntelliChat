@@ -13,11 +13,11 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from doc_worker.configs.settings import settings
 
-doc_worker_app = FastAPI(
+app = FastAPI(
     title=settings.APP_NAME
 )
 
-doc_worker_app.add_middleware(
+app.add_middleware(
     CORSMiddleware,
     allow_origins=[settings.CORS_DEV_ORIGIN, settings.CORS_PROD_ORIGIN],
     allow_credentials=True,

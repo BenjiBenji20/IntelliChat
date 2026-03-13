@@ -11,4 +11,4 @@ ENV PORT=8080
 
 EXPOSE 8080
 
-CMD uvicorn doc_worker:doc_worker_app --host 0.0.0.0 --port $PORT --log-level debug
+CMD uvicorn main_doc_worker:app --host 0.0.0.0 --port $PORT --log-level debug
