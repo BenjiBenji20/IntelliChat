@@ -16,19 +16,18 @@ from api.modules.documents.gcs_service import (
 
 
 def _build_storage_path(
-    user_id: UUID, chatbot_id: UUID, 
-    document_id: UUID, file_name: str
+    chatbot_id: UUID, document_id: UUID, file_name: str
 ) -> str:
     """
     Deterministic, user-scoped GCS object key.
-    Pattern: api/uploads/{user_id}/{chatbot_id}/{document_id}/{file_name}
+    Pattern: api/uploads/{chatbot_id}/{document_id}/{file_name}
 
     Keeping user_id at the top level makes it trivial to:
       - List all files for a user
       - Apply lifecycle rules per prefix
       - Audit access patterns
     """
-    return f"api/uploads/{user_id}/{chatbot_id}/{document_id}/{file_name}"
+    return f"api/uploads/{chatbot_id}/{document_id}/{file_name}"
 
 
 class DocumentService:
@@ -156,7 +155,7 @@ class DocumentService:
             results = []
             for document, file in zip(documents, valid_files):
                 storage_path = _build_storage_path(
-                    user_id, payload.chatbot_id, document.id, file.file_name
+                    payload.chatbot_id, document.id, file.file_name
                 )
                 document.storage_path = storage_path
 
