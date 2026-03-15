@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, ForeignKey, String, Index, UniqueConstraint
+from sqlalchemy import Column, ForeignKey, String, Index, CheckConstraint
 from sqlalchemy.dialects.postgresql import UUID, TIMESTAMP
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
@@ -12,16 +12,26 @@ class EmbeddingModelKey(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("profiles.id", ondelete="CASCADE"), nullable=False)
     chatbot_id = Column(UUID(as_uuid=True), ForeignKey("chatbots.id", ondelete="CASCADE"), nullable=False)
-    provider = Column(String(255), nullable=False, default="Google Studio AI")
+    provider = Column(String(255), nullable=False)
     api_key_encrypted = Column(String, nullable=False)
-    embedding_model_name = Column(String(100), nullable=False, default="models/gemini-embedding-001")
+    embedding_model_name = Column(String(100), nullable=False)
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
     __table_args__ = (
         Index("idx_embedding_model_keys_user_id", "user_id"),
         Index("idx_embedding_model_keys_chatbot_id", "chatbot_id"),
-        # UniqueConstraint("chatbot_id", "unique_chatbot_embedding")
+        CheckConstraint(
+            "provider IN ('Google Studio AI', 'OpenAI', 'Anthropic', 'Azure OpenAI')",
+            name="embedding_model_keys_provider_check"
+        ),
+        CheckConstraint(
+            "embedding_model_name IN ("
+            "'gemini-embedding-001','text-embedding-005',"
+            "'text-multilingual-embedding-002','gemini-embedding-2-preview'"
+            ")",
+            name="embedding_model_keys_embedding_model_check"
+        ),
     )
 
     # relationships
