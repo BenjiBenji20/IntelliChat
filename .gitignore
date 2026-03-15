@@ -14,3 +14,4 @@ intellichat-gcs-service-key.json
 gcs-cors-configs.json
 
 api/tests/module/documents/test_files/*
+doc_worker/tests/test_files/*
