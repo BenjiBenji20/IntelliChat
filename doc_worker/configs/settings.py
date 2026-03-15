@@ -1,5 +1,5 @@
 from typing import Literal
-from pydantic import PostgresDsn, SecretStr
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
@@ -14,8 +14,11 @@ class Settings(BaseSettings):
     LLM_API_KEY: str = None
     LLM_NAME: str = None
     
+    ENCRYPTION_KEY: str = None
+    
     # GCP
     CLOUD_TASK_QUEUE_PATH: str = None
+    QUEUE_NAME: str = None
     WORKER_URL: str = None
     GCP_PROJECT_ID: str = None
     GCP_REGION: str = None
@@ -28,6 +31,9 @@ class Settings(BaseSettings):
     POSTGRES_HOST: str = None
     POSTGRES_PORT: str = None
     POSTGRES_DATABASE: str = None
+    
+    QDRANT_API_KEY: str = None
+    QDRANT_CLUSTER_ENDPOINT: str = None
     
     class Config:
         env_file = "doc_worker.env"
