@@ -15,13 +15,21 @@ from fastapi.middleware.cors import CORSMiddleware
 from doc_worker.configs.settings import settings
 from doc_worker.db import db_session
 from doc_worker.db.db_session import init_db_pool, close_db_pool
+from doc_worker.configs.gcs import init_gcs_client
+from doc_worker.configs.qdrant import init_qdrant_client
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
         await init_db_pool()
         await db_session.pool.fetchrow("SELECT 1") # try fetch to trigger cold start
-        print("\n\nPostgres connected successfully!")
+        print("\n\nPostgres connected successfully!\n\n")
+        
+        init_gcs_client()
+        print("\n\nThis document worker successfully connected to GCS!\n\n")
+        
+        await init_qdrant_client()
+        print("\n\nThis document worker successfully connected to QDrant!\n\n")
         
         yield 
         
@@ -43,3 +51,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],  # Allows all headers
 )
+
+from doc_worker.routers.v1.document_worker_router import router as document_worker_router
+app.include_router(document_worker_router)
