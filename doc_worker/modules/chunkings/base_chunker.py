@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import List
-from uuid import UUID
+from uuid import UUID, uuid4
 from langchain_core.documents import Document
 
 
@@ -28,7 +28,7 @@ class BaseChunker(ABC):
         file_type: str,
         content: str,
         document_id: UUID,
-        chunk_index: int,
+        chunk_index: uuid4,
         file_name: str,
         ingestion_time: datetime,
         content_type: str = "knowledge",

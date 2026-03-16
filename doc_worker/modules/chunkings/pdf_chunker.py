@@ -1,6 +1,6 @@
 import logging
 from io import BytesIO
-from uuid import UUID
+from uuid import UUID, uuid4
 from datetime import datetime
 from typing import List
 
@@ -19,7 +19,8 @@ class PdfChunker(BaseChunker):
     splits oversized pages within chunk size limit.
     """
 
-    def __init__(self, chunk_size: int = 500, chunk_overlap: int = 50):
+    def __init__(self, chunk_size: int = 500, chunk_overlap: int = 50, document_type: str = "knowledge_base"):
+        self.document_type = document_type
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         self.splitter = RecursiveCharacterTextSplitter(
@@ -32,13 +33,13 @@ class PdfChunker(BaseChunker):
         self,
         content: bytes,
         document_id: UUID,
-        source: str,
+        file_name: str,
     ) -> List[Document] | None:
         try:
             if not content or not isinstance(content, bytes):
                 logger.error(
                     f"PdfChunker received invalid content type for "
-                    f"document_id={document_id}, source={source}"
+                    f"document_id={document_id}, file_name={file_name}"
                 )
                 return None
 
@@ -47,7 +48,7 @@ class PdfChunker(BaseChunker):
             if not reader.pages:
                 logger.error(
                     f"PdfChunker received empty PDF for "
-                    f"document_id={document_id}, source={source}"
+                    f"document_id={document_id}, file_name={file_name}"
                 )
                 return None
 
@@ -58,9 +59,9 @@ class PdfChunker(BaseChunker):
 
             ingestion_time = datetime.now()
             chunks: List[Document] = []
-            chunk_index = 0
 
             for page_number, page in enumerate(reader.pages, start=1):
+                chunk_index = uuid4()
                 page_text = page.extract_text()
 
                 if not page_text or not page_text.strip():
@@ -76,14 +77,14 @@ class PdfChunker(BaseChunker):
                             file_type="pdf",
                             content=page_text,
                             document_id=document_id,
+                            document_type=self.document_type,
                             chunk_index=chunk_index,
-                            source=source,
+                            file_name=file_name,
                             ingestion_time=ingestion_time,
                             pdf_title=pdf_title,
                             page_number=page_number,
                         )
                     )
-                    chunk_index += 1
 
                 else:
                     # page too large — split recursively
@@ -95,18 +96,17 @@ class PdfChunker(BaseChunker):
                                 content=split,
                                 document_id=document_id,
                                 chunk_index=chunk_index,
-                                source=source,
+                                file_name=file_name,
                                 ingestion_time=ingestion_time,
                                 pdf_title=pdf_title,
                                 page_number=page_number,
                             )
                         )
-                        chunk_index += 1
 
             if not chunks:
                 logger.error(
                     f"PdfChunker produced no chunks for "
-                    f"document_id={document_id}, source={source}"
+                    f"document_id={document_id}, file_name={file_name}"
                 )
                 return None
 
@@ -115,7 +115,7 @@ class PdfChunker(BaseChunker):
         except Exception as e:
             logger.error(
                 f"PdfChunker failed for "
-                f"document_id={document_id}, source={source}. "
+                f"document_id={document_id}, file_name={file_name}. "
                 f"Error: {e}"
             )
             return None

@@ -1,6 +1,6 @@
 import json
 import logging
-from uuid import UUID
+from uuid import UUID, uuid4
 from datetime import datetime
 from typing import List
 
@@ -18,25 +18,30 @@ class JsonlChunker(BaseChunker):
     JSONL chunker — each line/record becomes one chunk.
     Traces record_id from object keys if available.
     """
+    def __init__(self, document_type: str = "knowledge_base"):
+        self.document_type = document_type
+        pass
 
     def chunk(
         self,
         content: list[dict],
         document_id: UUID,
-        source: str,
+        file_name: str,
     ) -> List[Document] | None:
         try:
             if not content or not isinstance(content, list):
                 logger.error(
                     f"JsonlChunker received invalid content type for "
-                    f"document_id={document_id}, source={source}"
+                    f"document_id={document_id}, file_name={file_name}"
                 )
                 return None
 
             ingestion_time = datetime.now()
             chunks: List[Document] = []
 
-            for index, record in enumerate(content):
+            for record in content:
+                index = uuid4()
+                
                 if not isinstance(record, dict):
                     logger.warning(
                         f"JsonlChunker skipping non-dict record at index={index} "
@@ -54,8 +59,9 @@ class JsonlChunker(BaseChunker):
                         file_type="jsonl",
                         content=serialized,
                         document_id=document_id,
+                        document_type=self.document_type,
                         chunk_index=index,
-                        source=source,
+                        file_name=file_name,
                         ingestion_time=ingestion_time,
                         record_id=record_id,
                     )
@@ -64,7 +70,7 @@ class JsonlChunker(BaseChunker):
             if not chunks:
                 logger.error(
                     f"JsonlChunker produced no chunks for "
-                    f"document_id={document_id}, source={source}"
+                    f"document_id={document_id}, file_name={file_name}"
                 )
                 return None
 
@@ -73,7 +79,7 @@ class JsonlChunker(BaseChunker):
         except Exception as e:
             logger.error(
                 f"JsonlChunker failed for "
-                f"document_id={document_id}, source={source}. "
+                f"document_id={document_id}, file_name={file_name}. "
                 f"Error: {e}"
             )
             return None

@@ -13,19 +13,20 @@ class ChunkerFactory:
     @staticmethod
     def get_chunker(
         file_type: str,
+        document_type: str = "knowledge_base",
         chunk_size: int = 500,
         chunk_overlap: int = 50
     ) -> BaseChunker:
         if file_type == "txt":
-            return TextChunker(chunk_size, chunk_overlap)
+            return TextChunker(chunk_size, chunk_overlap, document_type)
         elif file_type == "pdf":
-            return PdfChunker(chunk_size, chunk_overlap)
+            return PdfChunker(chunk_size, chunk_overlap, document_type)
         elif file_type == "md":
-            return MarkdownChunker(chunk_size, chunk_overlap)
+            return MarkdownChunker(chunk_size, chunk_overlap, document_type)
         elif file_type == "json":
-            return JsonChunker()
+            return JsonChunker(document_type)
         elif file_type == "jsonl":
-            return JsonlChunker()
+            return JsonlChunker(document_type)
         else:
             raise ValueError(f"Unsupported file type: {file_type}")
 

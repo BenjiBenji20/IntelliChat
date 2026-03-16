@@ -1,5 +1,5 @@
 import logging
-from uuid import UUID
+from uuid import UUID, uuid4
 from datetime import datetime
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -12,7 +12,8 @@ logger = logging.getLogger(__name__)
 
 class TextChunker(BaseChunker):
     """Text file chunker"""
-    def __init__(self, chunk_size: int = 500, chunk_overlap: int = 50):
+    def __init__(self, chunk_size: int = 500, chunk_overlap: int = 50, document_type: str = "knowledge_base"):
+        self.document_type = document_type
         self.splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap,
@@ -23,13 +24,13 @@ class TextChunker(BaseChunker):
         self,
         content: str,
         document_id: UUID,
-        source: str,
+        file_name: str,
     ) -> List[Document] | None:
         try:
             if not content or not isinstance(content, str):
                 logger.error(
                     f"TextChunker received invalid content type for "
-                    f"document_id={document_id}, source={source}"
+                    f"document_id={document_id}, file_name={file_name}"
                 )
                 return None
             
@@ -38,26 +39,32 @@ class TextChunker(BaseChunker):
             if not splits:
                 logger.error(
                     f"TextChunker produced no chunks for "
-                    f"document_id={document_id}, source={source}"
+                    f"document_id={document_id}, file_name={file_name}"
                 )
                 return None
 
-            return [
-                self._build_document(
-                    content=split,
-                    file_type="txt",
-                    chunk_index=index,
-                    document_id=document_id,
-                    source=source,
-                    ingestion_time=datetime.now().isoformat()
+            chunks = []
+            
+            for split in splits:
+                index = uuid4()
+                chunks.append(
+                    self._build_document(
+                        content=split,
+                        file_type="txt",
+                        document_type=self.document_type,
+                        chunk_index=index,
+                        document_id=document_id,
+                        file_name=file_name,
+                        ingestion_time=datetime.now().isoformat()
+                    )
                 )
-                for index, split in enumerate(splits)
-            ]
+                
+            return chunks
             
         except Exception as e:
             logger.error(
                 f"TextChunker failed for "
-                f"document_id={document_id}, source={source}. "
+                f"document_id={document_id}, file_name={file_name}. "
                 f"Error: {e}"
             )
             return None

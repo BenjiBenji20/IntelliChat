@@ -1,5 +1,5 @@
 import logging
-from uuid import UUID
+from uuid import UUID, uuid4
 from datetime import datetime
 from typing import List
 
@@ -23,7 +23,8 @@ class MarkdownChunker(BaseChunker):
     Header context is prepended to chunk content AND stored in metadata.
     """
 
-    def __init__(self, chunk_size: int = 500, chunk_overlap: int = 50):
+    def __init__(self, chunk_size: int = 500, chunk_overlap: int = 50, document_type: str = "knowledge_base"):
+        self.document_type = document_type
         self.chunk_size = chunk_size
         self.header_splitter = MarkdownHeaderTextSplitter(
             headers_to_split_on=HEADERS_TO_SPLIT_ON,
@@ -39,13 +40,13 @@ class MarkdownChunker(BaseChunker):
         self,
         content: str,
         document_id: UUID,
-        source: str,
+        file_name: str,
     ) -> List[Document] | None:
         try:
             if not content or not isinstance(content, str):
                 logger.error(
                     f"MarkdownChunker received invalid content type for "
-                    f"document_id={document_id}, source={source}"
+                    f"document_id={document_id}, file_name={file_name}"
                 )
                 return None
 
@@ -55,15 +56,15 @@ class MarkdownChunker(BaseChunker):
             if not header_splits:
                 logger.error(
                     f"MarkdownChunker produced no splits for "
-                    f"document_id={document_id}, source={source}"
+                    f"document_id={document_id}, file_name={file_name}"
                 )
                 return None
 
             ingestion_time = datetime.now()
             chunks: List[Document] = []
-            chunk_index = 0
 
             for split in header_splits:
+                chunk_index = uuid4()
                 # build header path from metadata
                 # ex: "Introduction > Getting Started > Installation"
                 header_path = self._build_header_path(split.metadata)
@@ -84,15 +85,15 @@ class MarkdownChunker(BaseChunker):
                         self._build_document(
                             file_type="md",
                             content=content_with_header,
+                            document_type=self.document_type,
                             document_id=document_id,
                             chunk_index=chunk_index,
-                            source=source,
+                            file_name=file_name,
                             ingestion_time=ingestion_time,
                             section=header_path or None,
                             heading_level=self._get_deepest_heading_level(split.metadata),
                         )
                     )
-                    chunk_index += 1
 
                 # section too large — split recursively
                 else:
@@ -106,18 +107,17 @@ class MarkdownChunker(BaseChunker):
                                 content=sub_split.strip(),
                                 document_id=document_id,
                                 chunk_index=chunk_index,
-                                source=source,
+                                file_name=file_name,
                                 ingestion_time=ingestion_time,
                                 section=header_path or None,
                                 heading_level=self._get_deepest_heading_level(split.metadata),
                             )
                         )
-                        chunk_index += 1
 
             if not chunks:
                 logger.error(
                     f"MarkdownChunker produced no chunks for "
-                    f"document_id={document_id}, source={source}"
+                    f"document_id={document_id}, file_name={file_name}"
                 )
                 return None
 
@@ -126,7 +126,7 @@ class MarkdownChunker(BaseChunker):
         except Exception as e:
             logger.error(
                 f"MarkdownChunker failed for "
-                f"document_id={document_id}, source={source}. "
+                f"document_id={document_id}, file_name={file_name}. "
                 f"Error: {e}"
             )
             return None
