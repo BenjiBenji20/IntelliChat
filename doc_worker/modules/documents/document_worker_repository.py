@@ -66,7 +66,7 @@ class DocumentWorkerRepository:
             query = (
                 "SELECT api_key_encrypted, embedding_model_name, provider "
                 "FROM embedding_model_keys e "
-                "JOIN chatbots c ON c.embedding_model_key_id = e.id "
+                "JOIN chatbots c ON c.id = e.chatbot_id "
                 "WHERE c.id = $1"
             )
             
