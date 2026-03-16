@@ -32,9 +32,8 @@ class BaseChunker(ABC):
         chunk_index: int,
         file_name: str,
         ingestion_time: datetime,
+        document_type: str = "knowledge_base", # ex: faq, q&a
         content_type: str = "knowledge",
-        
-        document_type: str = None, # ex: faq, q&a
         section: str = None, # section title
         heading_level: int = None, # ## = 2 ### = 3
         pdf_title: str = None, # only for pdf

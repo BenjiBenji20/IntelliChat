@@ -182,3 +182,39 @@ NEGATIVE / GUARDRAIL TESTS
 [2026-03-16 18:27:54] ✅ PASS | test_document_not_found_in_db | status=failed | message=Document with ID: 00000000-0000-0000-0000-000000000000 not found in database.
 [2026-03-16 18:27:54] ✅ PASS | test_idempotency_already_indexed | status=indexed | message=Document already indexed.
 [2026-03-16 18:27:55] ✅ PASS | test_embedding_model_not_configured | status=failed | message=Embedding model and API key not found.Configure your chatbot project first before document processing.
+
+============================================================
+HAPPY PATH TESTS
+============================================================
+[2026-03-16 18:39:41] ✅ PASS | test_process_txt_document | status=indexed | message=Document successfully indexed. Ready for document retrieval!
+[2026-03-16 18:39:50] ✅ PASS | test_process_md_document | status=indexed | message=Document successfully indexed. Ready for document retrieval!
+[2026-03-16 18:40:05] ✅ PASS | test_process_json_document | status=indexed | message=Document successfully indexed. Ready for document retrieval!
+[2026-03-16 18:40:17] ✅ PASS | test_process_jsonl_document | status=indexed | message=Document successfully indexed. Ready for document retrieval!
+[2026-03-16 18:40:17] ❌ FAIL | test_process_pdf_document | status=failed | message=Failed to chunk Pdf document.
+
+============================================================
+NEGATIVE / GUARDRAIL TESTS
+============================================================
+[2026-03-16 18:40:18] ✅ PASS | test_unsupported_file_type | status=failed | message=Unsupported file type
+[2026-03-16 18:40:19] ✅ PASS | test_file_not_found_in_gcs | status=failed | message=File not found.
+[2026-03-16 18:40:19] ✅ PASS | test_document_not_found_in_db | status=failed | message=Document with ID: 00000000-0000-0000-0000-000000000000 not found in database.
+[2026-03-16 18:40:19] ✅ PASS | test_idempotency_already_indexed | status=indexed | message=Document already indexed.
+[2026-03-16 18:40:20] ✅ PASS | test_embedding_model_not_configured | status=failed | message=Embedding model and API key not found.Configure your chatbot project first before document processing.
+
+============================================================
+HAPPY PATH TESTS
+============================================================
+[2026-03-16 18:43:52] ✅ PASS | test_process_txt_document | status=indexed | message=Document successfully indexed. Ready for document retrieval!
+[2026-03-16 18:44:01] ✅ PASS | test_process_md_document | status=indexed | message=Document successfully indexed. Ready for document retrieval!
+[2026-03-16 18:44:16] ✅ PASS | test_process_json_document | status=indexed | message=Document successfully indexed. Ready for document retrieval!
+[2026-03-16 18:44:28] ✅ PASS | test_process_jsonl_document | status=indexed | message=Document successfully indexed. Ready for document retrieval!
+[2026-03-16 18:44:36] ✅ PASS | test_process_pdf_document | status=indexed | message=Document successfully indexed. Ready for document retrieval!
+
+============================================================
+NEGATIVE / GUARDRAIL TESTS
+============================================================
+[2026-03-16 18:44:37] ✅ PASS | test_unsupported_file_type | status=failed | message=Unsupported file type
+[2026-03-16 18:44:37] ✅ PASS | test_file_not_found_in_gcs | status=failed | message=File not found.
+[2026-03-16 18:44:37] ✅ PASS | test_document_not_found_in_db | status=failed | message=Document with ID: 00000000-0000-0000-0000-000000000000 not found in database.
+[2026-03-16 18:44:38] ✅ PASS | test_idempotency_already_indexed | status=indexed | message=Document already indexed.
+[2026-03-16 18:44:38] ✅ PASS | test_embedding_model_not_configured | status=failed | message=Embedding model and API key not found.Configure your chatbot project first before document processing.

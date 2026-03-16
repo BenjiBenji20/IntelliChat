@@ -108,6 +108,7 @@ class MarkdownChunker(BaseChunker):
                                 file_type="md",
                                 content=sub_split.strip(),
                                 document_id=document_id,
+                                document_type=self.document_type,
                                 chunk_index=chunk_index,
                                 chunk_id=uuid4(),
                                 file_name=file_name,
