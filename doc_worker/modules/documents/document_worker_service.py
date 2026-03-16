@@ -126,6 +126,7 @@ class DocumentWorkerService:
             try:
                 chunk_file = chunker_factory.get_chunker(
                     payload.file_type,
+                    payload.document_type,
                     payload.chunk_size,
                     payload.chunk_overlap
                 )

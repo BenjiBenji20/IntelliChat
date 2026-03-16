@@ -8,6 +8,7 @@ class ProcessDocumentRequestSchema(BaseModel):
     file_type: str  # txt, md, json, jsonl, pdf
     
     # optional chunking configuration of: txt, pdf files
+    document_type: str = "knowledge_base"
     chunk_size: int = 500
     chunk_overlap: int = 50
     separator: str = "\n\n"
