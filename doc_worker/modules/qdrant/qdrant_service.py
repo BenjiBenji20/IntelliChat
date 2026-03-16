@@ -54,6 +54,17 @@ class QdrantService:
                 logger.info(
                     f"QdrantService created collection: {collection_name}"
                 )
+            # Always ensure payload index exists for document_id
+            # Required for delete_document_vectors filter to work
+            await self.client.create_payload_index(
+                collection_name=collection_name,
+                field_name="document_id",
+                field_schema="keyword"
+            )
+            logger.info(
+                f"QdrantService ensured payload index on document_id "
+                f"for collection={collection_name}"
+            )
         except Exception as e:
             logger.error(
                 f"QdrantService failed to ensure collection: {collection_name}. "
