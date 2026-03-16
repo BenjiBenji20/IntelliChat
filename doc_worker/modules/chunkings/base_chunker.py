@@ -28,7 +28,8 @@ class BaseChunker(ABC):
         file_type: str,
         content: str,
         document_id: UUID,
-        chunk_index: uuid4,
+        chunk_id: uuid4,
+        chunk_index: int,
         file_name: str,
         ingestion_time: datetime,
         content_type: str = "knowledge",
@@ -47,6 +48,7 @@ class BaseChunker(ABC):
         """
         metadata = {
                 "document_id": str(document_id),
+                "chunk_id": chunk_id,
                 "chunk_index": chunk_index,
                 "file_name": file_name,
                 "file_type": file_type,

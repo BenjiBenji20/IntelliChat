@@ -38,12 +38,11 @@ class JsonChunker(BaseChunker):
             ingestion_time = datetime.now()
             chunks: List[Document] = []
 
-            for record in content:
-                index = uuid4()
+            for chunk_index, record in enumerate(content):
                 
                 if not isinstance(record, (dict, list)):
                     logger.warning(
-                        f"JsonChunker skipping non-dict record at index={index} "
+                        f"JsonChunker skipping non-dict record at index={chunk_index} "
                         f"document_id={document_id}"
                     )
                     continue
@@ -54,14 +53,14 @@ class JsonChunker(BaseChunker):
                 # array chunk
                 if isinstance(record, list):
                     # construct json_path for metadata
-                    json_path = f"item[{index}]"
+                    json_path = f"item[{chunk_index}]"
 
                 # object chunk → json_path = first string value in object
                 elif isinstance(record, dict):
                     # get first key's value as json_path identifier
                     first_key = next(iter(record))
                     first_value = record[first_key]
-                    json_path = str(first_value) if isinstance(first_value, (str, int)) else f"[{index}]"
+                    json_path = str(first_value) if isinstance(first_value, (str, int)) else f"[{chunk_index}]"
                     
                 chunks.append(
                     self._build_document(
@@ -69,7 +68,8 @@ class JsonChunker(BaseChunker):
                         content=serialized,
                         document_id=document_id,
                         document_type=self.document_type,
-                        chunk_index=index,
+                        chunk_index=chunk_index,
+                        chunk_id=uuid4(),
                         file_name=file_name,
                         ingestion_time=ingestion_time,
                         json_path=json_path,

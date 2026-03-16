@@ -59,9 +59,9 @@ class PdfChunker(BaseChunker):
 
             ingestion_time = datetime.now()
             chunks: List[Document] = []
-
+            chunk_index = 0
+            
             for page_number, page in enumerate(reader.pages, start=1):
-                chunk_index = uuid4()
                 page_text = page.extract_text()
 
                 if not page_text or not page_text.strip():
@@ -79,13 +79,15 @@ class PdfChunker(BaseChunker):
                             document_id=document_id,
                             document_type=self.document_type,
                             chunk_index=chunk_index,
+                            chunk_id=uuid4(),
                             file_name=file_name,
                             ingestion_time=ingestion_time,
                             pdf_title=pdf_title,
                             page_number=page_number,
                         )
                     )
-
+                    chunk_index += 1
+                    
                 else:
                     # page too large — split recursively
                     splits = self.splitter.split_text(page_text)
@@ -95,6 +97,7 @@ class PdfChunker(BaseChunker):
                                 file_type="pdf",
                                 content=split,
                                 document_id=document_id,
+                                chunk_id=uuid4(),
                                 chunk_index=chunk_index,
                                 file_name=file_name,
                                 ingestion_time=ingestion_time,
@@ -102,6 +105,7 @@ class PdfChunker(BaseChunker):
                                 page_number=page_number,
                             )
                         )
+                        chunk_index+=1
 
             if not chunks:
                 logger.error(

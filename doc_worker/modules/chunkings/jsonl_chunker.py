@@ -39,12 +39,11 @@ class JsonlChunker(BaseChunker):
             ingestion_time = datetime.now()
             chunks: List[Document] = []
 
-            for record in content:
-                index = uuid4()
+            for chunk_index, record in enumerate(content):
                 
                 if not isinstance(record, dict):
                     logger.warning(
-                        f"JsonlChunker skipping non-dict record at index={index} "
+                        f"JsonlChunker skipping non-dict record at index={chunk_index} "
                         f"document_id={document_id}"
                     )
                     continue
@@ -60,7 +59,8 @@ class JsonlChunker(BaseChunker):
                         content=serialized,
                         document_id=document_id,
                         document_type=self.document_type,
-                        chunk_index=index,
+                        chunk_index=chunk_index,
+                        chunk_id=uuid4(),
                         file_name=file_name,
                         ingestion_time=ingestion_time,
                         record_id=record_id,

@@ -45,14 +45,14 @@ class TextChunker(BaseChunker):
 
             chunks = []
             
-            for split in splits:
-                index = uuid4()
+            for chunk_index, split in enumerate(splits):
                 chunks.append(
                     self._build_document(
                         content=split,
                         file_type="txt",
                         document_type=self.document_type,
-                        chunk_index=index,
+                        chunk_id=uuid4(),
+                        chunk_index=chunk_index,
                         document_id=document_id,
                         file_name=file_name,
                         ingestion_time=datetime.now().isoformat()

@@ -62,9 +62,9 @@ class MarkdownChunker(BaseChunker):
 
             ingestion_time = datetime.now()
             chunks: List[Document] = []
+            chunk_index = 0
 
             for split in header_splits:
-                chunk_index = uuid4()
                 # build header path from metadata
                 # ex: "Introduction > Getting Started > Installation"
                 header_path = self._build_header_path(split.metadata)
@@ -88,12 +88,14 @@ class MarkdownChunker(BaseChunker):
                             document_type=self.document_type,
                             document_id=document_id,
                             chunk_index=chunk_index,
+                            chunk_id=uuid4(),
                             file_name=file_name,
                             ingestion_time=ingestion_time,
                             section=header_path or None,
                             heading_level=self._get_deepest_heading_level(split.metadata),
                         )
                     )
+                    chunk_index+=1
 
                 # section too large — split recursively
                 else:
@@ -107,12 +109,14 @@ class MarkdownChunker(BaseChunker):
                                 content=sub_split.strip(),
                                 document_id=document_id,
                                 chunk_index=chunk_index,
+                                chunk_id=uuid4(),
                                 file_name=file_name,
                                 ingestion_time=ingestion_time,
                                 section=header_path or None,
                                 heading_level=self._get_deepest_heading_level(split.metadata),
                             )
                         )
+                        chunk_index+=1
 
             if not chunks:
                 logger.error(
