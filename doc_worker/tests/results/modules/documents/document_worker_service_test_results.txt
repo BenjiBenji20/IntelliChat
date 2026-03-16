@@ -68,3 +68,99 @@ NEGATIVE / GUARDRAIL TESTS
 [2026-03-15 21:08:21] ✅ PASS | test_unsupported_file_type | status=failed | message=Unsupported file type
 [2026-03-15 21:08:22] ✅ PASS | test_document_not_found_in_db | status=failed | message=Document with ID: 00000000-0000-0000-0000-000000000000 not found in database.
 [2026-03-15 21:08:22] ✅ PASS | test_idempotency_already_indexed | status=indexed | message=Document already indexed.
+
+============================================================
+HAPPY PATH TESTS
+============================================================
+
+============================================================
+NEGATIVE / GUARDRAIL TESTS
+============================================================
+[2026-03-16 16:00:10] ✅ PASS | test_unsupported_file_type | status=failed | message=Unsupported file type
+[2026-03-16 16:00:11] ✅ PASS | test_document_not_found_in_db | status=failed | message=Document with ID: 00000000-0000-0000-0000-000000000000 not found in database.
+[2026-03-16 16:00:11] ✅ PASS | test_idempotency_already_indexed | status=indexed | message=Document already indexed.
+
+============================================================
+HAPPY PATH TESTS
+============================================================
+
+============================================================
+HAPPY PATH TESTS
+============================================================
+[2026-03-16 16:13:10] ❌ FAIL | test_process_txt_document | status=failed | message=Failed to chunk Txt document.
+[2026-03-16 16:16:05] ✅ PASS | test_file_not_found_in_gcs | status=failed | message=File not found.
+[2026-03-16 16:17:05] ✅ PASS | test_embedding_model_not_configured | status=failed | message=Embedding model and API key not found.Configure your chatbot project first before document processing.
+
+============================================================
+HAPPY PATH TESTS
+============================================================
+[2026-03-16 16:22:26] ❌ FAIL | test_process_txt_document | status=failed | message=Failed to make vector embeddings for the document: i_love_about_re_zero.txt
+
+============================================================
+HAPPY PATH TESTS
+============================================================
+[2026-03-16 16:24:24] ❌ FAIL | test_process_txt_document | status=failed | message=Failed to make vector embeddings for the document: i_love_about_re_zero.txt
+
+============================================================
+HAPPY PATH TESTS
+============================================================
+[2026-03-16 16:31:25] ❌ FAIL | test_process_txt_document | status=failed | message=Failed to make vector embeddings for the document: i_love_about_re_zero.txt
+
+============================================================
+HAPPY PATH TESTS
+============================================================
+[2026-03-16 16:38:59] ❌ FAIL | test_process_txt_document | status=failed | message=Failed to make vector embeddings for the document: i_love_about_re_zero.txt
+
+============================================================
+HAPPY PATH TESTS
+============================================================
+
+============================================================
+HAPPY PATH TESTS
+============================================================
+[2026-03-16 16:51:06] ✅ PASS | test_process_txt_document | status=indexed | message=Document successfully indexed. Ready for document retrieval!
+
+============================================================
+HAPPY PATH TESTS
+============================================================
+
+============================================================
+HAPPY PATH TESTS
+============================================================
+[2026-03-16 17:32:23] ✅ PASS | test_process_txt_document | status=indexed | message=Document successfully indexed. Ready for document retrieval!
+
+============================================================
+HAPPY PATH TESTS
+============================================================
+[2026-03-16 17:35:37] ✅ PASS | test_process_txt_document | status=indexed | message=Document successfully indexed. Ready for document retrieval!
+[2026-03-16 17:35:45] ✅ PASS | test_process_md_document | status=indexed | message=Document successfully indexed. Ready for document retrieval!
+[2026-03-16 17:36:01] ✅ PASS | test_process_json_document | status=indexed | message=Document successfully indexed. Ready for document retrieval!
+[2026-03-16 17:36:13] ✅ PASS | test_process_jsonl_document | status=indexed | message=Document successfully indexed. Ready for document retrieval!
+[2026-03-16 17:36:21] ✅ PASS | test_process_pdf_document | status=indexed | message=Document successfully indexed. Ready for document retrieval!
+
+============================================================
+NEGATIVE / GUARDRAIL TESTS
+============================================================
+[2026-03-16 17:36:21] ❌ FAIL | test_unsupported_file_type | status=indexed | message=Document already indexed.
+[2026-03-16 17:36:22] ✅ PASS | test_file_not_found_in_gcs | status=failed | message=File not found.
+[2026-03-16 17:36:22] ✅ PASS | test_document_not_found_in_db | status=failed | message=Document with ID: 00000000-0000-0000-0000-000000000000 not found in database.
+[2026-03-16 17:36:23] ✅ PASS | test_idempotency_already_indexed | status=indexed | message=Document already indexed.
+[2026-03-16 17:36:23] ✅ PASS | test_embedding_model_not_configured | status=failed | message=Embedding model and API key not found.Configure your chatbot project first before document processing.
+
+============================================================
+HAPPY PATH TESTS
+============================================================
+[2026-03-16 17:44:38] ✅ PASS | test_process_txt_document | status=indexed | message=Document successfully indexed. Ready for document retrieval!
+[2026-03-16 17:44:47] ✅ PASS | test_process_md_document | status=indexed | message=Document successfully indexed. Ready for document retrieval!
+[2026-03-16 17:45:03] ✅ PASS | test_process_json_document | status=indexed | message=Document successfully indexed. Ready for document retrieval!
+[2026-03-16 17:45:15] ✅ PASS | test_process_jsonl_document | status=indexed | message=Document successfully indexed. Ready for document retrieval!
+[2026-03-16 17:45:24] ✅ PASS | test_process_pdf_document | status=indexed | message=Document successfully indexed. Ready for document retrieval!
+
+============================================================
+NEGATIVE / GUARDRAIL TESTS
+============================================================
+[2026-03-16 17:45:24] ✅ PASS | test_unsupported_file_type | status=failed | message=Unsupported file type
+[2026-03-16 17:45:25] ✅ PASS | test_file_not_found_in_gcs | status=failed | message=File not found.
+[2026-03-16 17:45:25] ✅ PASS | test_document_not_found_in_db | status=failed | message=Document with ID: 00000000-0000-0000-0000-000000000000 not found in database.
+[2026-03-16 17:45:25] ✅ PASS | test_idempotency_already_indexed | status=indexed | message=Document already indexed.
+[2026-03-16 17:45:26] ✅ PASS | test_embedding_model_not_configured | status=failed | message=Embedding model and API key not found.Configure your chatbot project first before document processing.

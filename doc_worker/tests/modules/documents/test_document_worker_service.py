@@ -265,6 +265,12 @@ class TestNegativeCases:
         payload.file_type = "xlsx"  # unsupported
         service = DocumentWorkerService(db=db_connection)
 
+        # reset status so idempotency guard doesn't trigger first
+        await service.repo.db.execute(
+            "UPDATE documents SET status = 'pending' WHERE id = $1",
+            payload.document_id
+        )
+
         result = await service.process_document(payload)
 
         passed = result.status == "failed"
