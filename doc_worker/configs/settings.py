@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     QDRANT_CLUSTER_ENDPOINT: str = None
     
     class Config:
-        env_file = "doc_worker.env"
+        env_file = ".env"
         extra = "ignore"
         
     @property
