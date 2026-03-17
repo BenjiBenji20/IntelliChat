@@ -49,6 +49,11 @@ class Settings(BaseSettings):
     GCS_DOWNLOAD_URL_EXPIRY_SECONDS: int = 3600
     MAX_FILE_SIZE_BYTES: int = 52428800
     
+    QUEUE_NAME: str = None
+    CLOUD_TASKS_QUEUE_PATH: str = None
+    CLOUD_TASKS_BUCKET_SA_EMAIL: str = None
+    WORKER_URL: str = None
+    
     class Config:
         env_file = ".env"
         extra = "ignore"
