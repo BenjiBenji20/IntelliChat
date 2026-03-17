@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.db.db_session import get_async_db
@@ -8,6 +8,7 @@ from api.dependencies.auth import get_current_user
 from api.modules.documents.document_schema import *
 from api.modules.documents.document_service import DocumentService
 from api.dependencies.rate_limit import rate_limit_by_user
+from api.modules.documents.bg_tasks import _enqueue_tasks
 
 router = APIRouter(
     prefix="/api/documents", 
@@ -96,14 +97,20 @@ async def bulk_generate_upload_urls(
 )
 async def bulk_confirm_uploads(
     payload: BulkConfirmRequestSchema,
+    background_tasks: BackgroundTasks,
     _: UUID = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
 ):
     service = DocumentService(db)
-    return await service.bulk_confirm_uploads(
+    response, task_payloads = await service.bulk_confirm_uploads(
         chatbot_id=payload.chatbot_id,
         payload=payload,
     )
+    
+    if task_payloads:
+        background_tasks.add_task(_enqueue_tasks, task_payloads, "/worker/document/process")
+        
+    return response
 
 
 @router.get(

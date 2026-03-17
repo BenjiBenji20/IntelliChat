@@ -14,6 +14,13 @@ from api.modules.documents.gcs_service import (
     gcs_service,
 )
 
+_DEFAULT_CONFIG = {
+    "chunk_size": 500,
+    "chunk_overlap": 50,
+    "separator": "\n\n",
+    "document_type": "knowledge_base",
+}
+
 
 def _build_storage_path(
     chatbot_id: UUID, document_id: UUID, file_name: str
@@ -198,7 +205,15 @@ class DocumentService:
         self,
         chatbot_id: UUID,
         payload: BulkConfirmRequestSchema,
-    ) -> BulkConfirmResponseSchema:
+    ) -> tuple[BulkConfirmResponseSchema, list[dict]]:
+        """
+        Confirms GCS uploads, bulk-updates status to 'uploaded',
+        then enqueues one Cloud Task per document (non-blocking).
+    
+        Ownership is enforced by scoping the DB fetch to chatbot_id —
+        any document_id not belonging to this chatbot is silently moved
+        to the failed list.
+        """
         try:
             # Single IN query for all requested document IDs
             documents = await self.document_repo.get_by_ids_and_chatbot_id(
@@ -208,7 +223,19 @@ class DocumentService:
             doc_map = {doc.id: doc for doc in documents}
             confirmed_ids = []
             confirmed_responses = []
+            task_payloads = []
             failed = []
+            
+            # Build config lookup: document_id → config dict
+            config_map: dict[str, dict] = {
+                str(cfg.document_id): {
+                    "chunk_size": cfg.chunk_size,
+                    "chunk_overlap": cfg.chunk_overlap,
+                    "separator": cfg.separator,
+                    "document_type": cfg.document_type,
+                }
+                for cfg in payload.document_configurations
+            }
 
             # GCS existence checks — these are I/O bound so gather them in parallel
             async def check_exists(doc: Document):
@@ -280,6 +307,10 @@ class DocumentService:
                     
                     continue
                 
+                # All checks passed — collect for bulk update and task enqueue
+                doc_id_str = str(doc_id)
+                cfg = config_map.get(doc_id_str, _DEFAULT_CONFIG)
+                
                 confirmed_ids.append(doc_id)
                 confirmed_responses.append(
                     ConfirmUploadResponseSchema(
@@ -289,12 +320,25 @@ class DocumentService:
                         message="Upload confirmed. Document is queued for processing.",
                     )
                 )
+                
+                file_extension = doc.file_name.rsplit(".", 1)[-1].lower()  # "file.txt" → "txt"
+                
+                task_payloads.append({
+                    "document_id": doc_id_str,
+                    "chatbot_id": str(chatbot_id),
+                    "file_name": doc.file_name,
+                    "file_type": file_extension,
+                    "chunk_size": cfg["chunk_size"],
+                    "chunk_overlap": cfg["chunk_overlap"],
+                    "separator": cfg["separator"],
+                    "document_type": cfg["document_type"],
+                })
 
             # Single UPDATE ... WHERE id IN (...) for all confirmed docs
             if confirmed_ids:
                 await self.document_repo.bulk_update_status(confirmed_ids, "uploaded")
-
-            return BulkConfirmResponseSchema(confirmed=confirmed_responses, failed=failed)
+                
+            return BulkConfirmResponseSchema(confirmed=confirmed_responses, failed=failed), task_payloads
 
         except HTTPException:
             raise
@@ -340,4 +384,3 @@ class DocumentService:
             )
             
         return document
-    

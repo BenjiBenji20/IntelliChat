@@ -87,10 +87,20 @@ class BulkUploadURLResponseSchema(BaseModel):
     failed: list[str] = []  # file_names that failed validation
 
 
+class DocumentConfigurationRequestSchema(BaseModel):
+    document_id: UUID
+    # Applied to .pdf, .txt, .md
+    chunk_size: int = Field(default=500, gt=0)
+    chunk_overlap: int = Field(default=50, ge=0)
+    separator: str = Field(default="\n\n")
+    # Applied to all file types
+    document_type: str = Field(default="knowledge_base")
+
+
 class BulkConfirmRequestSchema(BaseModel):
     chatbot_id: UUID
     document_ids: list[UUID] = Field(..., min_length=1, max_length=10)
-
+    document_configurations: list[DocumentConfigurationRequestSchema] = Field(default_factory=list)
 
 class BulkConfirmResponseSchema(BaseModel):
     confirmed: list[ConfirmUploadResponseSchema]
