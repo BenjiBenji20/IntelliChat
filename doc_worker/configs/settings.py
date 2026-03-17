@@ -50,7 +50,7 @@ class Settings(BaseSettings):
 
     
     class Config:
-        env_file = "doc_worker.env"
+        env_file = ".env"
         extra = "ignore"
         
     @property
