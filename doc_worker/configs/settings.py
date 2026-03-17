@@ -35,8 +35,22 @@ class Settings(BaseSettings):
     QDRANT_API_KEY: str = None
     QDRANT_CLUSTER_ENDPOINT: str = None
     
+    # GOOGLE CLOUD STORAGE SERVICE KEY
+    TYPE: str = None 
+    PROJECT_ID: str = None 
+    PRIVATE_KEY_ID: str = None 
+    PRIVATE_KEY: str = None 
+    CLIENT_EMAIL: str = None 
+    CLIENT_ID: str = None 
+    AUTH_URI: str = None 
+    TOKEN_URI: str = None 
+    AUTH_PROVIDER_X509_CERT_URL: str = None 
+    CLIENT_X509_CERT_URL: str = None 
+    UNIVERSE_DOMAIN: str = None
+
+    
     class Config:
-        env_file = ".env"
+        env_file = "doc_worker.env"
         extra = "ignore"
         
     @property
@@ -48,5 +62,22 @@ class Settings(BaseSettings):
             f"{self.POSTGRES_PORT}/"
             f"{self.POSTGRES_DATABASE}?ssl=require"
         )
+    
+    @property
+    def get_gcs_credentials(self) -> dict:
+        """Returns the Google credentials as a dictionary"""
+        return {
+            "type": self.TYPE,
+            "project_id": self.PROJECT_ID,
+            "private_key_id": self.PRIVATE_KEY_ID,
+            "private_key": self.PRIVATE_KEY.replace("\\n", "\n"),
+            "client_email": self.CLIENT_EMAIL,
+            "client_id": self.CLIENT_ID,
+            "auth_uri": self.AUTH_URI,
+            "token_uri": self.TOKEN_URI,
+            "auth_provider_x509_cert_url": self.AUTH_PROVIDER_X509_CERT_URL,
+            "client_x509_cert_url": self.CLIENT_X509_CERT_URL,
+            "universe_domain": self.UNIVERSE_DOMAIN
+        }
     
 settings = Settings()

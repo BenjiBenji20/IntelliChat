@@ -1,0 +1,34 @@
+# Create .gcloudignore to exclude heavy directories
+cat > .gcloudignore << 'EOF'
+.git
+.gitignore
+venv/
+doc_worker_venv/
+__pycache__/
+*.pyc
+*.pyo
+node_modules/
+.env
+.env.*
+gcp-credentials.json
+doc_worker/test_files/
+EOF
+
+*.env
+*venv/
+__pycache__/
+*.pyc
+chroma_db/
+docs/
+
+test_code/
+
+requirements_bundle.txt
+note.txt
+
+intellichat-gcs-service-key.json
+gcs-cors-configs.json
+
+api/tests/module/documents/test_files/*
+doc_worker/tests/test_files/*
+
