@@ -5,7 +5,7 @@ from cryptography.fernet import Fernet, InvalidToken
 from fastapi import HTTPException
 import asyncio
 
-from api.configs.settings import settings
+from doc_worker.configs.settings import settings
 from doc_worker.configs.gcs import get_gcs_bucket
 from doc_worker.modules.documents.document_worker_schema import *
 from doc_worker.modules.documents.document_worker_repository import DocumentWorkerRepository
