@@ -4,7 +4,7 @@ from typing import Optional
 
 from google.cloud import storage
 
-from api.configs.gcp_client import get_bucket, get_storage_client
+from api.configs.gcs import get_bucket, get_storage_client
 from api.configs.settings import settings
 
 
