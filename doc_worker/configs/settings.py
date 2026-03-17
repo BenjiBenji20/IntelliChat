@@ -50,7 +50,8 @@ class Settings(BaseSettings):
 
     
     class Config:
-        env_file = ".env"
+        #env_file = "doc_worker.env"
+        env_file = ".env" # point to native .env file name for successful cloud run deployment
         extra = "ignore"
         
     @property
