@@ -16,46 +16,26 @@ router = APIRouter(
 )
 
 @router.get(
-    "/download/{chatbot_id}/{document_id}",
-    response_model=DownloadURLResponseSchema,
+    "/",
+    response_model=DocumentListResponseSchema,
     status_code=status.HTTP_200_OK,
-    summary="Generate a signed download URL for a document",
-    dependencies=[Depends(rate_limit_by_user())]
+    summary="List all documents and statuses for a chatbot (paginated)",
+    dependencies=[Depends(rate_limit_by_user(
+        max_request=60
+    ))]
 )
-async def get_download_url(
+async def list_documents(
     chatbot_id: UUID,
-    document_id: UUID,
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
     _: UUID = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
 ):
     service = DocumentService(db)
-    return await service.generate_download_url(
+    return await service.list_documents_by_chatbot(
         chatbot_id=chatbot_id,
-        document_id=document_id
-    )
-
-
-@router.delete(
-    "/delete/{chatbot_id}/{document_id}",
-    response_model=DeleteDocumentResponseSchema,
-    status_code=status.HTTP_200_OK,
-    summary="Delete a document from GCS and the database",
-    description=(
-        "Deletes the file from GCS first, then removes the DB record. "
-        "Cascades to embeddings_metadata via foreign key."
-    ),
-    dependencies=[Depends(rate_limit_by_user())]
-)
-async def delete_document(
-    chatbot_id: UUID,
-    document_id: UUID,
-    _: UUID = Depends(get_current_user),
-    db: AsyncSession = Depends(get_async_db),
-):
-    service = DocumentService(db)
-    return await service.delete_document(
-        chatbot_id=chatbot_id,
-        document_id=document_id
+        limit=limit,
+        offset=offset,
     )
 
 
@@ -114,25 +94,44 @@ async def bulk_confirm_uploads(
 
 
 @router.get(
-    "/",
-    response_model=DocumentListResponseSchema,
+    "/download/{chatbot_id}/{document_id}",
+    response_model=DownloadURLResponseSchema,
     status_code=status.HTTP_200_OK,
-    summary="List all documents and statuses for a chatbot (paginated)",
-    dependencies=[Depends(rate_limit_by_user(
-        max_request=60
-    ))]
+    summary="Generate a signed download URL for a document",
+    dependencies=[Depends(rate_limit_by_user())]
 )
-async def list_documents(
+async def get_download_url(
     chatbot_id: UUID,
-    limit: int = Query(default=20, ge=1, le=100),
-    offset: int = Query(default=0, ge=0),
+    document_id: UUID,
     _: UUID = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
 ):
     service = DocumentService(db)
-    return await service.list_documents_by_chatbot(
+    return await service.generate_download_url(
         chatbot_id=chatbot_id,
-        limit=limit,
-        offset=offset,
+        document_id=document_id
     )
-    
+
+
+@router.delete(
+    "/delete/{chatbot_id}/{document_id}",
+    response_model=DeleteDocumentResponseSchema,
+    status_code=status.HTTP_200_OK,
+    summary="Delete a document from GCS and the database",
+    description=(
+        "Deletes the file from GCS first, then removes the DB record. "
+        "Cascades to embeddings_metadata via foreign key."
+    ),
+    dependencies=[Depends(rate_limit_by_user())]
+)
+async def delete_document(
+    chatbot_id: UUID,
+    document_id: UUID,
+    _: UUID = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+):
+    service = DocumentService(db)
+    return await service.delete_document(
+        chatbot_id=chatbot_id,
+        document_id=document_id
+    )
