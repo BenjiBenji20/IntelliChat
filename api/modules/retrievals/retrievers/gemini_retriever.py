@@ -2,10 +2,10 @@ from uuid import UUID
 import logging
 
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
-from qdrant_client.models import FieldCondition, Filter, MatchValue
 
 from api.modules.retrievals.retrievers.base_retriever import BaseRetriever
-from api.modules.retrievals.retrieval_schema import ChunkResultSchema, RetrievalFilter, RetrievalResponseSchema
+from api.modules.retrievals.retrieval_schema import ChunkResultSchema, RetrievalResponseSchema
+from shared.vector_details import create_collection_name
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ class GeminiRetriever(BaseRetriever):
                 logger.info("No embeddings found.")
                 return None
 
-            collection_name = f"chatbot_{chatbot_id}"
+            collection_name = create_collection_name(chatbot_id)
 
             # build Qdrant filter conditions
             # must_conditions = [
