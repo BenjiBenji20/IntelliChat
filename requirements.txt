@@ -91,6 +91,7 @@ orjson==3.11.7
 overrides==7.7.0
 packaging==26.0
 passlib==1.7.4
+portalocker==3.2.0
 postgrest==2.28.0
 posthog==5.4.0
 propcache==0.4.1
@@ -116,7 +117,9 @@ python-dateutil==2.9.0.post0
 python-dotenv==1.2.1
 python-jose==3.5.0
 python-multipart==0.0.22
+# pywin32==311
 PyYAML==6.0.3
+qdrant-client==1.17.1
 realtime==2.28.0
 referencing==0.37.0
 regex==2026.2.19
