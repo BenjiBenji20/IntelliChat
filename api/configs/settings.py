@@ -7,52 +7,55 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     ENV: Literal["dev", "prod", "test"] = "dev"
     
-    CORS_DEV_ORIGIN: str = None
-    CORS_PROD_ORIGIN: str = None
+    CORS_DEV_ORIGIN: str | None = None
+    CORS_PROD_ORIGIN: str | None = None
     
     # db settings
     # temporarily nullable for successfully deployment in GCP cloud run 
-    POSTGRES_USER: str = None
-    POSTGRES_PASSWORD: SecretStr = None
-    POSTGRES_HOST: str = None
-    POSTGRES_PORT: int = None
-    POSTGRES_DATABASE: str = None
+    POSTGRES_USER: str | None = None
+    POSTGRES_PASSWORD: SecretStr | None = None
+    POSTGRES_HOST: str | None = None
+    POSTGRES_PORT: int | None = None
+    POSTGRES_DATABASE: str | None = None
     
     # api secret key security
     API_KEY_HEADER_NAME: str = "Anonymous"
     
-    SECRET_KEY_PREFIX: str = None
-    ENCRYPTION_KEY: str = None
+    SECRET_KEY_PREFIX: str | None = None
+    ENCRYPTION_KEY: str | None = None
     
-    UPSTASH_REDIS_URL: str = None
-    UPSTASH_REDIS_TOKEN: str = None
+    UPSTASH_REDIS_URL: str | None = None
+    UPSTASH_REDIS_TOKEN: str | None = None
     
     # AI api
-    LLM_API_KEY: str = None
-    LLM_NAME: str = None
+    LLM_API_KEY: str | None = None
+    LLM_NAME: str | None = None
     
     # GOOGLE CLOUD STORAGE SERVICE KEY
-    TYPE: str = None 
-    PROJECT_ID: str = None 
-    PRIVATE_KEY_ID: str = None 
-    PRIVATE_KEY: str = None 
-    CLIENT_EMAIL: str = None 
-    CLIENT_ID: str = None 
-    AUTH_URI: str = None 
-    TOKEN_URI: str = None 
-    AUTH_PROVIDER_X509_CERT_URL: str = None 
-    CLIENT_X509_CERT_URL: str = None 
-    UNIVERSE_DOMAIN: str = None
+    TYPE: str | None = None 
+    PROJECT_ID: str | None = None 
+    PRIVATE_KEY_ID: str | None = None 
+    PRIVATE_KEY: str | None = None 
+    CLIENT_EMAIL: str | None = None 
+    CLIENT_ID: str | None = None 
+    AUTH_URI: str | None = None 
+    TOKEN_URI: str | None = None 
+    AUTH_PROVIDER_X509_CERT_URL: str | None = None 
+    CLIENT_X509_CERT_URL: str | None = None 
+    UNIVERSE_DOMAIN: str | None = None
     
-    GCS_BUCKET_NAME: str = None
+    GCS_BUCKET_NAME: str | None = None
     GCS_UPLOAD_URL_EXPIRY_SECONDS: int = 900
     GCS_DOWNLOAD_URL_EXPIRY_SECONDS: int = 3600
     MAX_FILE_SIZE_BYTES: int = 52428800
     
-    QUEUE_NAME: str = None
-    CLOUD_TASKS_QUEUE_PATH: str = None
-    CLOUD_TASKS_BUCKET_SA_EMAIL: str = None
-    WORKER_URL: str = None
+    QUEUE_NAME: str | None = None
+    CLOUD_TASKS_QUEUE_PATH: str | None = None
+    CLOUD_TASKS_BUCKET_SA_EMAIL: str | None = None
+    WORKER_URL: str | None = None
+    
+    QDRANT_API_KEY: str | None = None
+    QDRANT_CLUSTER_ENDPOINT: str | None = None
     
     class Config:
         env_file = ".env"
