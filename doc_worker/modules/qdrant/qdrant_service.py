@@ -16,6 +16,7 @@ from qdrant_client.models import (
 from langchain_core.documents import Document
 
 from doc_worker.configs.qdrant import get_qdrant_client
+from shared.vector_details import create_collection_name
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +25,6 @@ class QdrantService:
     @property
     def client(self) -> AsyncQdrantClient:
         return get_qdrant_client()
-
-    def _collection_name(self, chatbot_id: UUID) -> str:
-        return f"chatbot_{chatbot_id}"
 
     # -------------------------------------------------------------------------
     # COLLECTION MANAGEMENT
@@ -39,7 +37,7 @@ class QdrantService:
         Safe to call on every upsert — no error if already exists.
         Recoverable: raises on failure → Cloud Tasks retries.
         """
-        collection_name = self._collection_name(chatbot_id)
+        collection_name = create_collection_name(chatbot_id)
         try:
             exists = await self.client.collection_exists(collection_name)
             if not exists:
@@ -84,7 +82,7 @@ class QdrantService:
         Guarantees clean slate on retry — prevents duplicate vectors.
         Recoverable: raises on failure → Cloud Tasks retries.
         """
-        collection_name = self._collection_name(chatbot_id)
+        collection_name = create_collection_name(chatbot_id)
         try:
             await self.client.delete(
                 collection_name=collection_name,
@@ -125,7 +123,7 @@ class QdrantService:
         Upserts document chunks with their vectors into Qdrant.
         Recoverable: raises on failure → Cloud Tasks retries.
         """
-        collection_name = self._collection_name(chatbot_id)
+        collection_name = create_collection_name(chatbot_id)
         try:
             points = [
                 PointStruct(
