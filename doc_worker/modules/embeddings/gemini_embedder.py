@@ -1,20 +1,9 @@
-# doc_worker/modules/embeddings/gemini_embedder.py
-
 import logging
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from doc_worker.modules.embeddings.base_embedder import BaseEmbedder
+from shared.ai_models_details import GEMINI_MODEL_VECTOR_MAP, GOOGLE_AI_PROVIDERS
 
 logger = logging.getLogger(__name__)
-
-GOOGLE_AI_PROVIDERS = {"google ai studio", "google", "gemini", "google ai"}
-
-# supported gemini embedding models and their vector sizes
-GEMINI_MODEL_VECTOR_MAP = {
-    "gemini-embedding-001":           3072,
-    "text-embedding-005":             768,
-    "text-multilingual-embedding-002": 768,
-    "gemini-embedding-2-preview":     3072,
-}
 
 
 class GeminiEmbedder(BaseEmbedder):

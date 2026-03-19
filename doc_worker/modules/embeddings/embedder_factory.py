@@ -1,11 +1,6 @@
 from doc_worker.modules.embeddings.base_embedder import BaseEmbedder
 from doc_worker.modules.embeddings.gemini_embedder import GeminiEmbedder
-
-
-SUPPORTED_PROVIDERS = {
-    "Google AI Studio"
-    # Add more providers here
-}
+from shared.ai_models_details import SUPPORTED_PROVIDERS
 
 class EmbedderFactory:
 

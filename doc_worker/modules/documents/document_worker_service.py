@@ -13,6 +13,7 @@ from doc_worker.modules.chunkings.load_file import file_loader
 from doc_worker.modules.chunkings.chunker_factory import chunker_factory
 from doc_worker.modules.embeddings.embedder_factory import EmbedderFactory
 from doc_worker.modules.qdrant.qdrant_service import qdrant
+from shared.gcs_file_path import construct_file_path
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +94,7 @@ class DocumentWorkerService:
             del model_details["api_key_encrypted"] # delete encrypted key
 
             # Download file from GCS
-            file_path = self.construct_file_path(
+            file_path = construct_file_path(
                 payload.chatbot_id,
                 payload.document_id,
                 payload.file_name
@@ -242,13 +243,6 @@ class DocumentWorkerService:
             return None
         
         return await asyncio.get_running_loop().run_in_executor(None, blob.download_as_bytes)
-    
-    
-    def construct_file_path(
-        self, chatbot_id: UUID,
-        document_id: UUID, file_name: str
-    ) -> str:
-        return f"api/uploads/{chatbot_id}/{document_id}/{file_name}"
     
     
     def decrypt_secret(self, encrypted_key: str) -> str | None:
