@@ -2,13 +2,10 @@ import asyncio
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from qdrant_client import AsyncQdrantClient
-from qdrant_client.models import FieldCondition, Filter, FilterSelector, MatchValue
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.configs.settings import settings
 from api.models.document import Document
-from api.configs.qdrant import get_qdrant_client
 from api.modules.documents.document_repository import DocumentRepository
 from api.modules.documents.document_schema import *
 from api.modules.documents.gcs_service import (
@@ -16,6 +13,7 @@ from api.modules.documents.gcs_service import (
     gcs_service,
 )
 from shared.gcs_file_path import construct_file_path
+from api.modules.qdrant.qdrant_repository import qdrant_repo
 import logging
 
 _DEFAULT_CONFIG = {
@@ -93,10 +91,9 @@ class DocumentService:
             await self.document_repo.delete(document.id)
 
             # Delete document's vectors in qdrant
-            await self.delete_document_vectors(
+            await qdrant_repo.delete_document_vectors(
                 chatbot_id=chatbot_id,
-                document_id=document_id,
-                qdrant_client=get_qdrant_client()
+                document_id=document_id
             )
             
             return DeleteDocumentResponseSchema(
@@ -381,64 +378,3 @@ class DocumentService:
             )
             
         return document
-
-    
-    # ----------------------------------------------------------------------------------------------
-    # ON DELETE DOCUMENTS, document's vectors will be deleted in Qdrant by chatbot_id, document_id
-    # ----------------------------------------------------------------------------------------------
-    async def delete_document_vectors(
-        self, chatbot_id: UUID, document_id: UUID, qdrant_client: AsyncQdrantClient
-    ) -> None:
-        collection_name = f"chatbot_{chatbot_id}"
-        try:
-            # skip if collection doesn't exist
-            exists = await qdrant_client.collection_exists(collection_name)
-            if not exists:
-                logger.warning(
-                    f"Collection {collection_name} does not exist, "
-                    f"skipping vector deletion for document_id={document_id}"
-                )
-                return
-
-            result = await qdrant_client.delete(
-                collection_name=collection_name,
-                points_selector=FilterSelector(
-                    filter=Filter(
-                        must=[
-                            FieldCondition(
-                                key="document_id",
-                                match=MatchValue(value=str(document_id))
-                            )
-                        ]
-                    )
-                )
-            )
-
-            if result.status.name != "COMPLETED":
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    details=(
-                        f"Qdrant delete did not complete for document_id={document_id}. "
-                        f"Status: {result.status}"
-                    )
-                )
-
-            logger.info(
-                f"Document vectors deleted in Qdrant "
-                f"document_id={document_id} collection={collection_name}"
-            )
-
-        except HTTPException:
-            logger.error(
-                f"Failed to delete vectors for "
-                f"document_id={document_id}"
-            )
-            raise
-    
-        except Exception as e:
-            logger.error(
-                f"Failed to delete vectors for "
-                f"document_id={document_id}. Error: {e}"
-            )
-            raise
-            
