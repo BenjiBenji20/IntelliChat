@@ -1,5 +1,6 @@
 import logging
 from uuid import UUID
+import uuid
 from typing import List
 
 from qdrant_client import AsyncQdrantClient
@@ -128,7 +129,7 @@ class QdrantService:
         try:
             points = [
                 PointStruct(
-                    id=index,
+                    id=str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{document_id}_{index}")), # deterministic per document+chunk
                     vector={
                         vector_name: vector
                     },
