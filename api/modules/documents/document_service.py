@@ -10,9 +10,9 @@ from api.modules.documents.document_repository import DocumentRepository
 from api.modules.documents.document_schema import *
 from api.modules.documents.gcs_service import (
     SIGNED_URL_UPLOAD_EXPIRY_SECONDS,  # re-exported for response metadata
-    SIGNED_URL_DOWNLOAD_EXPIRY_SECONDS,
     gcs_service,
 )
+from shared.gcs_file_path import construct_file_path
 
 _DEFAULT_CONFIG = {
     "chunk_size": 500,
@@ -21,20 +21,6 @@ _DEFAULT_CONFIG = {
     "document_type": "knowledge_base",
 }
 
-
-def _build_storage_path(
-    chatbot_id: UUID, document_id: UUID, file_name: str
-) -> str:
-    """
-    Deterministic, user-scoped GCS object key.
-    Pattern: api/uploads/{chatbot_id}/{document_id}/{file_name}
-
-    Keeping user_id at the top level makes it trivial to:
-      - List all files for a user
-      - Apply lifecycle rules per prefix
-      - Audit access patterns
-    """
-    return f"api/uploads/{chatbot_id}/{document_id}/{file_name}"
 
 
 class DocumentService:
@@ -161,7 +147,7 @@ class DocumentService:
             # Build storage paths now that we have document IDs
             results = []
             for document, file in zip(documents, valid_files):
-                storage_path = _build_storage_path(
+                storage_path = construct_file_path(
                     payload.chatbot_id, document.id, file.file_name
                 )
                 document.storage_path = storage_path

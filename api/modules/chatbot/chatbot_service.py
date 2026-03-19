@@ -9,8 +9,8 @@ import asyncio
 from api.models.chatbot import Chatbot
 from api.modules.chatbot.chatbot_schema import *
 from api.modules.chatbot.chatbot_repository import ChatbotRepository
-from api.utils.secret_key_utils import *
-
+from api.configs.settings import settings
+from shared.keys import decrypt_secret
 
 class ChatbotService:
     def __init__(self, db: AsyncSession):
@@ -160,7 +160,10 @@ class ChatbotService:
                     response = await asyncio.to_thread(
                         self.chat_llm,
                         [{"role": chat.role.lower(), "content": chat.message}],
-                        decrypt_secret(llm_encrypted_key),
+                        decrypt_secret(
+                            encrypted_key=llm_encrypted_key,
+                            encryption_key=settings.ENCRYPTION_KEY
+                        ),
                         rows["llm_model_name"],
                         float(rows["llm_temperature"]),
                         rows["llm_provider"]

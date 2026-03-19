@@ -2,7 +2,7 @@ import asyncio
 from uuid import UUID
 import logging
  
-from fastapi import HTTPException, status
+from fastapi import HTTPException
 from qdrant_client import AsyncQdrantClient
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,10 +11,12 @@ from api.modules.retrievals.retrieval_schema import (
     RetrievalRequestSchema,
     RetrievalResponseSchema,
 )
-from api.utils.secret_key_utils import decrypt_secret
 from api.modules.retrievals.retrievers.retriever_factory import RetrieverFactory
 from api.modules.embedding_model_api_keys.embedding_model_key_repository import EmbeddingModelKeyRepository
 from api.modules.cache.redis_service import redis_service
+from api.configs.settings import settings
+from shared.keys import decrypt_secret
+from shared.str_normalizers import str_normalizer
 
 logger = logging.getLogger(__name__)
  
@@ -37,7 +39,10 @@ class RetrieveEmbeddingsService:
                 if not model_details:
                     raise HTTPException(status_code=404, detail="Chatbot not found.")
 
-            api_key = decrypt_secret(model_details["api_key_encrypted"])
+            api_key = decrypt_secret(
+                encrypted_key=model_details["api_key_encrypted"],
+                encryption_key=settings.ENCRYPTION_KEY
+            )
             if not api_key:
                 raise HTTPException(status_code=401, detail="Invalid API key")
 
@@ -82,8 +87,9 @@ class RetrieveEmbeddingsService:
         Main retrieval service method
         """
         try:
-            user_query = payload.query.lower().strip()
-            cached_key = f"{str(chatbot_id)}_{user_query}"
+            cached_key = str_normalizer.normalize_query_cache_key(
+                prefix=f"{str(chatbot_id)}", query=payload.query
+            )
             
             # check cached first
             cached_embeddings = await redis_service.get(
