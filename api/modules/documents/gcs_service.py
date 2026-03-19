@@ -6,7 +6,9 @@ from google.cloud import storage
 
 from api.configs.gcs import get_bucket, get_storage_client
 from api.configs.settings import settings
+import logging
 
+logger = logging.getLogger(__name__)
 
 SIGNED_URL_UPLOAD_EXPIRY_SECONDS = settings.GCS_UPLOAD_URL_EXPIRY_SECONDS
 SIGNED_URL_DOWNLOAD_EXPIRY_SECONDS = settings.GCS_DOWNLOAD_URL_EXPIRY_SECONDS
@@ -74,6 +76,31 @@ class GCSService:
         except Exception:
             # Object may already be gone (e.g. lifecycle-deleted). That's fine.
             pass
+        
+        
+    def delete_folder(self, folder_prefix: str) -> None:
+        """
+        Deletes all objects under a GCS prefix (simulated folder).
+        Example: delete_folder("api/uploads/chatbot_id/") deletes all files under that path.
+        Silent if already missing.
+        """
+        try:
+            blobs: list[storage.Blob] = list(self._bucket.list_blobs(prefix=folder_prefix))
+            if not blobs:
+                logger.info(f"GCS folder empty or not found: {folder_prefix}")
+                return
+            
+            for blob in blobs:
+                try:
+                    blob.delete()
+                    logger.info(f"Deleted GCS object: {blob.name}")
+                except Exception as e:
+                    logger.warning(f"Failed to delete GCS object {blob.name}: {e}")
+                    
+            logger.info(f"GCS folder deleted: {folder_prefix} ({len(blobs)} objects)")
+            
+        except Exception as e:
+            logger.warning(f"Failed to delete GCS folder {folder_prefix}: {e}")
 
 
     def object_exists(self, object_key: str) -> bool:
