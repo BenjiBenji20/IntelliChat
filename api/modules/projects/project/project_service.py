@@ -1,3 +1,5 @@
+import asyncio
+
 from fastapi import status, HTTPException
 import secrets
 import hashlib
@@ -5,10 +7,14 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from api.configs.settings import settings
 from api.models.project import Project
-from api.models.project_member import ProjectMember
 from api.modules.projects.member.project_member_repository import ProjectMemberRepository
 from api.modules.projects.project.project_repository import ProjectRepository
 from api.modules.projects.project.project_schema import *
+from api.modules.qdrant.qdrant_repository import qdrant_repo
+from api.modules.documents.gcs_service import gcs_service
+import logging
+
+logger = logging.getLogger(__name__)
 
 class ProjectService:
     """
@@ -134,7 +140,6 @@ class ProjectService:
         except HTTPException:
             raise
         except Exception as e:
-            await self.db.rollback()
             raise e
     
     
@@ -146,18 +151,56 @@ class ProjectService:
         Actions are for current user only
         """
         try:
-            success = await self.project_repository.leave_project(
+            success, chatbot_id = await self.project_repository.leave_project(
                 project_id=project_id, current_user_id=user_id
             )
+            
+            if success and chatbot_id:
+                # delete collection in qdrant
+                try:
+                    await qdrant_repo.delete_collection(chatbot_id)
+                except Exception as e:
+                    logger.warning(f"Failed to delete Qdrant collection for chatbot_id={chatbot_id}: {e}")
+                
+                # delete stored gcs files
+                await asyncio.to_thread(
+                    gcs_service.delete_folder, f"api/uploads/{chatbot_id}/"
+                )
             
             return success
             
         except HTTPException:
             raise
         except Exception as e:
-            await self.db.rollback()
             raise e
-        
+    
+    
+    async def delete_project(self, owner_id: UUID, project_id: UUID) -> bool:
+        try:
+            """Delete owner project cascades all and delete all records in GCS, QDrant"""
+            success, chatbot_id = await self.project_repository.delete_project(
+                project_id=project_id, owner_id=owner_id
+            )
+            
+            if success and chatbot_id:
+                # delete collection in qdrant
+                try:
+                    await qdrant_repo.delete_collection(chatbot_id)
+                except Exception as e:
+                    logger.warning(f"Failed to delete Qdrant collection for chatbot_id={chatbot_id}: {e}")
+                
+                # delete stored gcs files
+                await asyncio.to_thread(
+                    gcs_service.delete_folder, f"api/uploads/{chatbot_id}/"
+                )
+            
+            return success
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise e
+    
     
     # =============================================
     # HELPER METHODS
