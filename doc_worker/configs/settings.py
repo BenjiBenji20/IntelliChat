@@ -7,46 +7,46 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     ENV: Literal["dev", "prod", "test"] = "dev"
     
-    CORS_DEV_ORIGIN: str = None
-    CORS_PROD_ORIGIN: str = None
+    CORS_DEV_ORIGIN: str | None = None
+    CORS_PROD_ORIGIN: str | None = None
     
     # AI api
-    LLM_API_KEY: str = None
-    LLM_NAME: str = None
+    LLM_API_KEY: str | None = None
+    LLM_NAME: str | None = None
     
-    ENCRYPTION_KEY: str = None
+    ENCRYPTION_KEY: str | None = None
     
     # GCP
-    CLOUD_TASK_QUEUE_PATH: str = None
-    QUEUE_NAME: str = None
-    WORKER_URL: str = None
-    GCP_PROJECT_ID: str = None
-    GCP_REGION: str = None
-    GCS_BUCKET_NAME: str = None
-    MAIN_API_SERVICE_ACC_EMAIL: str = None
+    CLOUD_TASK_QUEUE_PATH: str | None = None
+    QUEUE_NAME: str | None = None
+    WORKER_URL: str | None = None
+    GCP_PROJECT_ID: str | None = None
+    GCP_REGION: str | None = None
+    GCS_BUCKET_NAME: str | None = None
+    MAIN_API_SERVICE_ACC_EMAIL: str | None = None
 
     # Supabase
-    POSTGRES_USER: str = None
-    POSTGRES_PASSWORD: SecretStr = None
-    POSTGRES_HOST: str = None
-    POSTGRES_PORT: str = None
-    POSTGRES_DATABASE: str = None
+    POSTGRES_USER: str | None = None
+    POSTGRES_PASSWORD: SecretStr | None = None
+    POSTGRES_HOST: str | None = None
+    POSTGRES_PORT: str | None = None
+    POSTGRES_DATABASE: str | None = None
     
-    QDRANT_API_KEY: str = None
-    QDRANT_CLUSTER_ENDPOINT: str = None
+    QDRANT_API_KEY: str | None = None
+    QDRANT_CLUSTER_ENDPOINT: str | None = None
     
     # GOOGLE CLOUD STORAGE SERVICE KEY
-    TYPE: str = None 
-    PROJECT_ID: str = None 
-    PRIVATE_KEY_ID: str = None 
-    PRIVATE_KEY: str = None 
-    CLIENT_EMAIL: str = None 
-    CLIENT_ID: str = None 
-    AUTH_URI: str = None 
-    TOKEN_URI: str = None 
-    AUTH_PROVIDER_X509_CERT_URL: str = None 
-    CLIENT_X509_CERT_URL: str = None 
-    UNIVERSE_DOMAIN: str = None
+    TYPE: str | None = None 
+    PROJECT_ID: str | None = None 
+    PRIVATE_KEY_ID: str | None = None 
+    PRIVATE_KEY: str | None = None 
+    CLIENT_EMAIL: str | None = None 
+    CLIENT_ID: str | None = None 
+    AUTH_URI: str | None = None 
+    TOKEN_URI: str | None = None 
+    AUTH_PROVIDER_X509_CERT_URL: str | None = None 
+    CLIENT_X509_CERT_URL: str | None = None 
+    UNIVERSE_DOMAIN: str | None = None
 
     
     class Config:
