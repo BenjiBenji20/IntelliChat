@@ -63,3 +63,12 @@ class RetrievalResponseSchema(BaseModel):
     top_k: int
     total_results: int
     results: list[ChunkResultSchema]
+
+
+class CollectionStatsSchema(BaseModel):
+    model_name: str
+    model_size: int
+    model_distance: str
+    total_documents: int
+    storage_kb: int
+    

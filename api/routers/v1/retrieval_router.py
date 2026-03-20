@@ -10,7 +10,6 @@ from api.dependencies.auth import get_current_user
 from api.dependencies.rate_limit import rate_limit_by_user
 from api.modules.retrievals.retrieval_schema import (
     RetrievalRequestSchema,
-    RetrievalResponseSchema,
 )
 from api.modules.retrievals.retrieval_service import RetrieveEmbeddingsService
  
@@ -37,5 +36,23 @@ async def retrieve_embeddings(
     return await service.test_retrieval(
         chatbot_id=chatbot_id,
         payload=payload,
+    )
+    
+    
+@router.get(
+    "/get/collection-stats/{chatbot_id}",
+    status_code=status.HTTP_200_OK,
+    summary="Get collection stats under the collection name.",
+    dependencies=[Depends(rate_limit_by_user())]
+)
+async def get_collection_stats(
+    chatbot_id: UUID,
+    db: AsyncSession = Depends(get_async_db),
+    _: UUID = Depends(get_current_user),
+    qdrant: AsyncQdrantClient = Depends(get_qdrant_client),
+):
+    service = RetrieveEmbeddingsService(qdrant, db)
+    return await service.get_collection_stats(
+        chatbot_id=chatbot_id
     )
     

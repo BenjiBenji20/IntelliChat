@@ -8,6 +8,7 @@ from qdrant_client import AsyncQdrantClient
 from sqlalchemy.ext.asyncio import AsyncSession
  
 from api.modules.retrievals.retrieval_schema import (
+    CollectionStatsSchema,
     RetrievalRequestSchema,
     RetrievalResponseSchema,
 )
@@ -17,6 +18,8 @@ from api.modules.cache.redis_service import redis_service
 from api.configs.settings import settings
 from shared.keys import decrypt_secret
 from shared.str_normalizers import str_normalizer
+from shared.vector_details import create_collection_name
+import aiohttp
 
 logger = logging.getLogger(__name__)
  
@@ -135,4 +138,48 @@ class RetrieveEmbeddingsService:
         except Exception as e:
             logger.error(f"Error for retrieval: {e}")
             raise e
-        
+    
+    
+    async def get_collection_stats(self, chatbot_id: UUID) -> CollectionStatsSchema | None:
+        try:
+            collection_name = create_collection_name(chatbot_id)
+            redis_prefix = "collection_stats"
+
+            # check redis first
+            cached = await redis_service.get(key=collection_name, prefix=redis_prefix)
+            if cached:
+                return CollectionStatsSchema.model_validate_json(cached)
+
+            # use qdrant client directly — no aiohttp needed
+            collection_info = await self.qdrant.get_collection(collection_name)
+
+            vectors_config = collection_info.config.params.vectors
+            model_name, vector_params = next(iter(vectors_config.items()))
+            model_size = vector_params.size
+            model_distance = vector_params.distance.name
+
+            points_count = collection_info.points_count
+            estimated_kb = round((points_count * model_size * 4) / 1024, 2)
+
+            stats = CollectionStatsSchema(
+                model_name=model_name,
+                model_size=model_size,
+                model_distance=model_distance,
+                total_documents=points_count,
+                storage_kb=int(estimated_kb),
+            )
+
+            # cache for 3 days
+            await redis_service.set(
+                    key=collection_name,
+                    value=stats.model_dump_json(),
+                    prefix=redis_prefix,
+                    ttl=259200
+                )
+
+            return stats
+
+        except Exception as e:
+            logger.warning(f"Error fetching collection stats: {e}")
+            return None
+            
