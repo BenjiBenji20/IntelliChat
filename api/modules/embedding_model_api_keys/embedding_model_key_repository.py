@@ -30,7 +30,7 @@ class EmbeddingModelKeyRepository(BaseCrudRepository[EmbeddingModelKey]):
                     EmbeddingModelKey.id,
                     EmbeddingModelKey.api_key_encrypted,
                     EmbeddingModelKey.embedding_model_name,
-                    EmbeddingModelKey.provider
+                    EmbeddingModelKey.provider.label("embedding_provider")
                 )
                 .join(
                     Chatbot, Chatbot.id == EmbeddingModelKey.chatbot_id
