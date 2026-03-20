@@ -51,7 +51,7 @@ class RetrieveEmbeddingsService:
 
             vector_embeddings: RetrievalResponseSchema = await self.retrieve_embeddings(
                 chatbot_id=chatbot_id,
-                provider=model_details["provider"],
+                provider=model_details["embedding_provider"],
                 api_key=api_key,
                 model_name=model_details["embedding_model_name"],
                 cache_prefix="test_query_embeddings",
