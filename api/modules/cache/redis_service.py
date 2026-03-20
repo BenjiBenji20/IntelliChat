@@ -1,5 +1,6 @@
 import logging
 from typing import Any
+from uuid import UUID
 from upstash_redis.asyncio import Redis
 
 from api.configs.settings import settings
@@ -74,7 +75,7 @@ class RedisService:
             for key, value in items.items():
                 full_key = self._build_key(prefix, key)
                 if ttl:
-                    pipeline.set(full_key, ttl, value, nx=True)
+                    pipeline.set(full_key, value, ex=ttl, nx=True)
                 else:
                     pipeline.set(full_key, value, nx=True)
             await pipeline.exec()
@@ -130,7 +131,23 @@ class RedisService:
         except Exception as e:
             logger.warning(f"Redis pipeline DELETE failed: {e}")
             return False
+        
+        
+    async def invalidate_chatbot_config_data_cache(self, chatbot_id: UUID) -> None:
+        """
+        Call this from any service that updates:
+            - LLM API keys
+            - Embedding model API keys
+            - Chatbot behavior / system prompt
 
+        The next chat() or test_chat() request will re-fetch from DB and
+        repopulate the cache automatically.
+        """
+        deleted = await self._client.delete(key=str(chatbot_id), prefix="chatbot_config_data")
+        if deleted:
+            logger.info(f"[CACHE INVALIDATED] chatbot_config_data for chatbot {chatbot_id}.")
+        else:
+            logger.warning(f"[CACHE INVALIDATE FAILED] chatbot_config_data for chatbot {chatbot_id}.")
 
     # -------------------------
     # SUPPORTING METHODS
