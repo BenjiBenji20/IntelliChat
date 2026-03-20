@@ -52,4 +52,19 @@ class ChatbotBehaviorRepository(BaseCrudRepository[ChatbotBehavior]):
         except Exception as e:
             await self.db.rollback()
             raise e
-        
+    
+    
+    async def get_system_prompt(self, chatbot_id: UUID) -> str | None:
+        try:
+            stmt = (
+                select(ChatbotBehavior.system_prompt)
+                .where(ChatbotBehavior.chatbot_id == chatbot_id)
+            )
+            
+            result = await self.db.execute(stmt)
+            return result.scalar()
+            
+        except Exception:
+            self.db.rollback()
+            raise
+          
