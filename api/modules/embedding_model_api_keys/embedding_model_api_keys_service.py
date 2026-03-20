@@ -4,8 +4,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import asyncio
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
-from api.models.chatbot import Chatbot
 from api.models.embedding_model_key import EmbeddingModelKey
+from api.modules.cache.redis_service import redis_service
 from api.modules.chatbot.chatbot_repository import ChatbotRepository
 from api.modules.llm_api_keys.llm_key_repository import LlmKeyRepository
 from api.modules.embedding_model_api_keys.embedding_model_key_repository import EmbeddingModelKeyRepository
@@ -156,6 +156,11 @@ class EmbeddingModelAPIKeyService:
                     status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                     detail=f"Embedding Model API key failed to update."
                 )
+                
+            # delete redis cached chatbot config data
+            await redis_service.invalidate_chatbot_config_data_cache(
+                embedding_model_key.chatbot_id
+            )
                 
             return ResponseEmbbedingModelSchema(
                 id=embedding_model_key.id,

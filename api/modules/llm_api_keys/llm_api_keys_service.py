@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from groq import Groq
 import asyncio
 
-from api.models.chatbot import Chatbot
+from api.modules.cache.redis_service import redis_service
 from api.models.llm_key import LlmKey
 from api.models.embedding_model_key import EmbeddingModelKey
 from api.modules.chatbot.chatbot_repository import ChatbotRepository
@@ -152,6 +152,11 @@ class ChatbotAPIKeyService:
                     status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                     detail=f"LLM API key failed to update."
                 )
+                
+            # delete redis cached chatbot config data
+            await redis_service.invalidate_chatbot_config_data_cache(
+                llm_key.chatbot_id
+            )
                 
             return ResponseLlmSchema(
                 id=llm_key.id,
