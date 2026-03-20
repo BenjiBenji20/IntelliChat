@@ -1,12 +1,16 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Request, Depends, status
+from qdrant_client import AsyncQdrantClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from api.configs.qdrant import get_qdrant_client
 from api.db.db_session import get_async_db
 from api.dependencies.auth import get_current_user
 from api.dependencies.chatbot_secret_key import intellichat_secret
+from api.modules.chat.chat_schema import IntelliChatRequest, IntellichatResponseSchema
 from api.modules.chatbot.chatbot_service import ChatbotService
+from api.modules.chat.intellichat_service import IntelliChatService
 from api.modules.chatbot.chatbot_schema import *
 from api.dependencies.rate_limit import rate_limit_by_user, rate_limit_by_api_key
 
@@ -67,48 +71,50 @@ async def update_chatbot_identity(
 
 @router.post(
     "/api/chat-ai/test/{project_id}/{chatbot_id}", 
-    response_model=ResponseChat,
+    response_model=IntellichatResponseSchema,
     dependencies=[Depends(rate_limit_by_user())]
 )
 async def test_intellichat(
     project_id: UUID,
     chatbot_id: UUID,
-    chat: RequestChat,
-    current_user_id: UUID = Depends(get_current_user),
-    db: AsyncSession = Depends(get_async_db)
+    payload: IntelliChatRequest,
+    db: AsyncSession = Depends(get_async_db),
+    qdrant: AsyncQdrantClient = Depends(get_qdrant_client),
+    _: None = Depends(intellichat_secret)
 ):
     """
     IntelliChat test your chatbot in Overview page    
     """
-    service = ChatbotService(db)
-    return await service.chat(
-        chat=chat,
-        project_id=project_id,
+    service = IntelliChatService(db=db, qdrant=qdrant)
+    return await service.test_chat(
+        query=payload.query,
+        top_k=payload.top_k,
+        session_id=payload.session_id,
         chatbot_id=chatbot_id,
-        environment="development"
     )
 
 
 @router.post(
     "/{project_id}/{chatbot_id}", 
-    response_model=ResponseChat,
+    response_model=IntellichatResponseSchema,
     dependencies=[Depends(rate_limit_by_api_key())]
 )
 async def intellichat(
     project_id: UUID,
     chatbot_id: UUID,
-    chat: RequestChat,
+    payload: IntelliChatRequest,
     request: Request,
     db: AsyncSession = Depends(get_async_db),
+    qdrant: AsyncQdrantClient = Depends(get_qdrant_client),
     _: None = Depends(intellichat_secret)
 ):
     """
     User/production endpoint    
     """
-    service = ChatbotService(db)
+    service = IntelliChatService(db=db, qdrant=qdrant)
     return await service.chat(
-        chat=chat,
-        project_id=project_id,
+        query=payload.query,
+        top_k=payload.top_k,
+        session_id=payload.session_id,
         chatbot_id=chatbot_id,
-        environment="production"
     )
