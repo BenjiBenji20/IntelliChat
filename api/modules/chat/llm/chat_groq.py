@@ -35,12 +35,9 @@ class ChatGroq(BaseLLM):
         Chat with Groq provider using their official python groq sdk
         Response a generator object.
         """
-        print(f"\n\n===[DEBUG]START GROQ SERVICE====\nLoc: chat_groq.py\n\n")
         knowledge_block = "\n\n".join(
             f"[{i+1}] {chunk}" for i, chunk in enumerate(knowledge)
         ) if knowledge else ""
-        
-        print(f"\n\n[DEBUG]KNOWLEDGE: {knowledge_block}\nLoc: chat_groq.py\n\n")
         
         messages = []
         
@@ -57,7 +54,6 @@ class ChatGroq(BaseLLM):
             messages.append({"role": "system", "content": knowledge_block})
  
         messages.append({"role": "user", "content": query})
-        print(f"\n\n[DEBUG]MESSAGE: {messages}\nLoc: chat_groq.py\n\n")
         
         try:
             stream = await self.client.chat.completions.create(
