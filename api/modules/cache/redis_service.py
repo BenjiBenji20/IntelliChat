@@ -143,7 +143,7 @@ class RedisService:
         The next chat() or test_chat() request will re-fetch from DB and
         repopulate the cache automatically.
         """
-        deleted = await self._client.delete(key=str(chatbot_id), prefix="chatbot_config_data")
+        deleted = await self.delete(key=str(chatbot_id), prefix="chatbot_config_data")
         if deleted:
             logger.info(f"[CACHE INVALIDATED] chatbot_config_data for chatbot {chatbot_id}.")
         else:
