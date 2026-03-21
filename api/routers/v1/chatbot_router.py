@@ -80,7 +80,7 @@ async def test_intellichat(
     payload: IntelliChatRequest,
     db: AsyncSession = Depends(get_async_db),
     qdrant: AsyncQdrantClient = Depends(get_qdrant_client),
-    _: None = Depends(intellichat_secret)
+    _: UUID = Depends(get_current_user)
 ):
     """
     IntelliChat test your chatbot in Overview page    
