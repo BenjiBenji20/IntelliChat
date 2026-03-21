@@ -13,10 +13,10 @@ class RetrieverFactory:
         qdrant: AsyncQdrantClient
     ) -> BaseRetriever:
         """Orchestrates the flow of retrieval based on provider"""
-        if provider == "Google AI Studio" and provider in SUPPORTED_PROVIDERS:
+        if provider.lower().strip() == "google ai studio" and provider in SUPPORTED_PROVIDERS:
             return GeminiRetriever(api_key=api_key, model_name=model_name, qdrant=qdrant)
         # future:
-        # elif provider == "OpenAI" and provider in SUPPORTED_PROVIDERS:
+        # elif provider.lower().strip() == "openai" and provider in SUPPORTED_PROVIDERS:
         #     return OpenAIRetriever(provider=provider, api_key=api_key, model_name=model_name, qdrant=qdrant)
         
         else:

@@ -1,10 +1,12 @@
+import asyncio
 from uuid import UUID
 import logging
 
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
-from api.modules.retrievals.retrievers.base_retriever import BaseRetriever
+from api.modules.retrievals.retrievers.base_retriever import *
 from api.modules.retrievals.retrieval_schema import ChunkResultSchema, RetrievalResponseSchema
+from google.api_core.exceptions import Unauthenticated, NotFound, ResourceExhausted, GoogleAPIError
 from shared.vector_details import create_collection_name
 
 logger = logging.getLogger(__name__)
@@ -94,3 +96,22 @@ class GeminiRetriever(BaseRetriever):
                 f"Gemini Retriever failed for chatbot_id={chatbot_id}. Error: {e}"
             )
             raise
+        
+        
+    async def test_retrieve_embeddings(self) -> bool:
+        try:
+            embedder = GoogleGenerativeAIEmbeddings(
+                model=self.model_name,
+                google_api_key=self.api_key,
+            )
+            await embedder.aembed_query("hi")
+            return True
+
+        except Unauthenticated:
+            raise EmbedderAuthError()
+        except NotFound:
+            raise EmbedderModelNotFoundError()
+        except ResourceExhausted:
+            raise EmbedderRateLimitError()
+        except GoogleAPIError as e:
+            raise EmbedderConnectionError(str(e))

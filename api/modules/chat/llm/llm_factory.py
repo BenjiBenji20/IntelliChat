@@ -1,5 +1,5 @@
 from api.modules.chat.llm.chat_groq import ChatGroq
-from shared.ai_models_details import model_provider_mapper
+from shared.ai_models_details import llm_provider_mapper
 from api.modules.chat.llm.base_llm import BaseLLM
 
 class LLMFactory:
@@ -14,12 +14,12 @@ class LLMFactory:
         This helps to use correct model SDK.
         """
         
-        if not model_provider_mapper(model_name=model_name, provider=provider):
+        if not llm_provider_mapper(model_name=model_name, provider=provider):
             raise ValueError(
                 f"Model '{model_name}' is not supported under provider '{provider}'."
             )
         
-        if provider == "Groq":
+        if provider.lower().strip() == "groq":
             return ChatGroq(api_key=api_key, model_name=model_name)
         
         # in future:

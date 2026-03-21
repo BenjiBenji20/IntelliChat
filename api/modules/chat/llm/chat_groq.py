@@ -1,9 +1,9 @@
 from uuid import UUID
 import logging
 
-from groq import AsyncGroq
+from groq import AsyncGroq, AuthenticationError, NotFoundError, RateLimitError
 
-from api.modules.chat.llm.base_llm import BaseLLM
+from api.modules.chat.llm.base_llm import *
 
 logger = logging.getLogger(__name__)
 
@@ -70,3 +70,25 @@ class ChatGroq(BaseLLM):
         except Exception as e:
             logger.error(f"[ChatGroq] Streaming error for chatbot {chatbot_id}: {e}")
             raise
+
+    
+    async def test_llm(self):
+        """Test LLM config if alive by hitting a 1 token to it."""
+        try:
+            await self.client.chat.completions.create(
+                model=self.model_name,
+                messages=[{"role": "user", "content": "hi"}],
+                max_tokens=1,
+                stream=False
+            )
+            return True
+        
+        except AuthenticationError:
+            raise LLMAuthError()
+        except NotFoundError:
+            raise LLMModelNotFoundError()
+        except RateLimitError:
+            raise LLMRateLimitError()
+        except Exception as e:
+            raise LLMConnectionError(str(e))
+            
