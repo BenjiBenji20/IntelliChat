@@ -22,7 +22,7 @@ class EmbeddingModelKey(Base):
         Index("idx_embedding_model_keys_user_id", "user_id"),
         Index("idx_embedding_model_keys_chatbot_id", "chatbot_id"),
         CheckConstraint(
-            "provider IN ('Google AI Studio', 'OpenAI', 'Anthropic', 'Azure OpenAI')",
+            "provider IN ('google ai studio', 'openai', 'anthropic', 'azure openai')",
             name="embedding_model_keys_provider_check"
         ),
         CheckConstraint(
