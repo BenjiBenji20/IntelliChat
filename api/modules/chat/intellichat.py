@@ -45,6 +45,8 @@ class IntelliChat:
  
         retrieval: RetrievalResponseSchema | None = None
         knowledge: list[str] = []
+        embedding_model_name = embedding_model_name.lower().strip()
+        embedding_provider = embedding_provider.lower().strip()
  
         # --- Retrieve knowledge (optional) ---
         if self.retrieval_service:
