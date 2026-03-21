@@ -1,8 +1,8 @@
 SUPPORTED_PROVIDERS = {
-    'Google AI Studio',
-    'OpenAI',
-    'Anthropic',
-    'Azure OpenAI'
+    'google ai studio',
+    'openai',
+    'anthropic',
+    'azure openai'
 }
 
 GOOGLE_AI_PROVIDERS = {"google ai studio", "google", "gemini", "google ai"}
@@ -15,10 +15,50 @@ GEMINI_MODEL_VECTOR_MAP = {
     "gemini-embedding-2-preview":     3072,
 }
 
+# support Embedder models based on providers
+# libraries available in langchain
+def embedder_provider_mapper(model_name: str, provider: str) -> bool:
+    EMBEDDER_MODELS_PROVIDER_MAP = {
+        "Google AI Studio": [
+            "gemini-embedding-001",
+            "text-embedding-005",
+            "text-multilingual-embedding-002",
+            "gemini-embedding-exp-03-07",
+        ],
+        "OpenAI": [
+            "text-embedding-3-small",
+            "text-embedding-3-large",
+            "text-embedding-ada-002",
+        ],
+        "Azure OpenAI": [
+            "text-embedding-3-small",
+            "text-embedding-3-large",
+            "text-embedding-ada-002",
+        ],
+    }
+    
+    prov = [
+        provider for prov in EMBEDDER_MODELS_PROVIDER_MAP.keys()
+        if provider.lower().strip() == prov.lower()
+        and model_name.lower().strip() in EMBEDDER_MODELS_PROVIDER_MAP[prov]
+    ]
+    
+    return True if prov else False
+
+def embedder_provider_validator(provider: str) -> bool:
+    PROVIDER_SET = {
+        'google ai studio',
+        'openai',
+        'anthropic',
+        'azure openai'
+    }
+    
+    return True if provider.lower().strip() in PROVIDER_SET else False
+
 
 # support LLM models based on providers
 # libraries available in langchain
-def model_provider_mapper(model_name: str, provider: str) -> bool:
+def llm_provider_mapper(model_name: str, provider: str) -> bool:
     LLM_MODELS_PROVIDER_MAP = {
         "OpenAI": [
             "gpt-4o",
@@ -41,3 +81,12 @@ def model_provider_mapper(model_name: str, provider: str) -> bool:
     ]
     
     return True if prov else False
+
+
+def llm_provider_validator(provider: str) -> bool:
+    PROVIDER_SET = {
+        "openai",
+        "groq",
+    }
+    
+    return True if provider.lower().strip() in PROVIDER_SET else False
