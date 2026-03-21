@@ -59,12 +59,14 @@ class ChatbotRepository(BaseCrudRepository[Chatbot]):
                     "id": llm.id,
                     "provider": llm.provider,
                     "llm_name": llm.llm_name,
+                    "api_key_encrypted": llm.api_key_encrypted,
                     "temperature": llm.temperature
                 } if llm else None,
                 "embedding_data": {
                     "id": embedding.id,
                     "provider": embedding.provider,
-                    "embedding_model_name": embedding.embedding_model_name
+                    "embedding_model_name": embedding.embedding_model_name,
+                    "api_key_encrypted": embedding.api_key_encrypted,
                 } if embedding else None
             }
 
