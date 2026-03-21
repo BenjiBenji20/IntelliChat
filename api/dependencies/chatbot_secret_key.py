@@ -1,5 +1,6 @@
 import hashlib
 from uuid import UUID
+import asyncio
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import APIKeyHeader
@@ -9,6 +10,7 @@ from sqlalchemy import and_, select
 from api.configs.settings import settings
 from api.db.db_session import get_async_db
 from api.models.project import Project
+from api.modules.cache.redis_service import redis_service
 
 secret_key_scheme = APIKeyHeader(name=settings.API_KEY_HEADER_NAME)
 
@@ -22,6 +24,11 @@ async def intellichat_secret(
     request key [raw] -> hashed raw key -> db [encrypted key] = 
     match [hashed request key == decoded key, project_id == id ??]
     """
+
+    """
+    TODO:
+        cache secret key ttl=1hr
+    """
     try:
         if not settings.ENCRYPTION_KEY:
             raise HTTPException(
@@ -31,6 +38,11 @@ async def intellichat_secret(
     
         # Hash the incoming raw key
         hashed_key = hashlib.sha256(secret_key.encode()).hexdigest()
+        
+        # get hashed_key. If hit, return True
+        cached_secret = await redis_service.get(key=str(project_id), prefix="secret_key")
+        if cached_secret:
+            return True
 
         # query in db using project_id
         stmt = (
@@ -45,6 +57,7 @@ async def intellichat_secret(
         )
 
         result = await db.execute(stmt)
+        
         is_secret_valid = True if result.scalar_one_or_none() is not None else False
 
         if not is_secret_valid:
@@ -52,6 +65,16 @@ async def intellichat_secret(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid API Key. Contact the project owners to solve this issue."
             )
+            
+        # cache hashed_key in redis. non-blocking coroutine
+        asyncio.create_task(
+            redis_service.set(
+                value=hashed_key, ttl=3600,
+                key=str(project_id), prefix="secret_key"
+            )
+        )
+        
+        return is_secret_valid
 
     except HTTPException:
         raise
