@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, status
+from qdrant_client import AsyncQdrantClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 
+from api.configs.qdrant import get_qdrant_client
 from api.db.db_session import get_async_db
 from api.dependencies.auth import get_current_user
 from api.modules.embedding_model_api_keys.embedding_model_api_keys_service import EmbeddingModelAPIKeyService
@@ -42,10 +44,11 @@ async def upload_llm_key(
 async def upload_embedding_model_key(
     payload: CreateRequestEmbbedingModelSchema,
     db: AsyncSession = Depends(get_async_db),
+    qdrant: AsyncQdrantClient = Depends(get_qdrant_client),
     current_user_id: UUID = Depends(get_current_user)
 ):
     payload.user_id = current_user_id
-    service = EmbeddingModelAPIKeyService(db)
+    service = EmbeddingModelAPIKeyService(db, qdrant)
     return await service.upload_embedding_model_key(payload)
 
 
@@ -58,7 +61,7 @@ async def upload_embedding_model_key(
 async def update_llm_api_key(
     payload: UpdateRequestLlmSchema,
     db: AsyncSession = Depends(get_async_db),
-    current_user_id: UUID = Depends(get_current_user)
+    _: UUID = Depends(get_current_user)
 ):
     """
     Patch llm_keys
@@ -77,11 +80,12 @@ async def update_llm_api_key(
 async def update_embedding_model_api_key(
     payload: UpdateRequestEmbeddingModelSchema,
     db: AsyncSession = Depends(get_async_db),
-    current_user_id: UUID = Depends(get_current_user)
+    qdrant: AsyncQdrantClient = Depends(get_qdrant_client),
+    _: UUID = Depends(get_current_user)
 ):
     """
     Patch embedding_model_keys
     original id, chatbot_id, created_at and user_id will persist
     """
-    service = EmbeddingModelAPIKeyService(db)
+    service = EmbeddingModelAPIKeyService(db, qdrant)
     return await service.update_embedding_model_api_key(payload)

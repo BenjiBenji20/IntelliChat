@@ -1,8 +1,7 @@
 from cryptography.fernet import Fernet
 from fastapi import HTTPException, status
+from qdrant_client import AsyncQdrantClient
 from sqlalchemy.ext.asyncio import AsyncSession
-import asyncio
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
 from api.models.embedding_model_key import EmbeddingModelKey
 from api.modules.cache.redis_service import redis_service
@@ -11,9 +10,12 @@ from api.modules.llm_api_keys.llm_key_repository import LlmKeyRepository
 from api.modules.embedding_model_api_keys.embedding_model_key_repository import EmbeddingModelKeyRepository
 from api.modules.embedding_model_api_keys.embedding_model_api_keys_schema import *
 from api.configs.settings import settings
+from api.modules.retrievals.retrievers.base_retriever import *
+from api.modules.retrievals.retrievers.retriever_factory import RetrieverFactory
+from shared.ai_models_details import embedder_provider_mapper, embedder_provider_validator
 
 class EmbeddingModelAPIKeyService:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, qdrant: AsyncQdrantClient):
         """
         This service will interact with 3 models: Chatbot, LLMKey and EmbeddingModelKey
         Chatbot model creation has steps:
@@ -21,11 +23,14 @@ class EmbeddingModelAPIKeyService:
         2. Chatbot's knowledge: User uploads API keys [LLM, Embedding Model]
         """
         self.db = db
+        self.qdrant = qdrant
         self.chatbot_repo = ChatbotRepository(db)
         self.llm_key_repo = LlmKeyRepository(db)
         self.embedding_model_key_repo = EmbeddingModelKeyRepository(db)
     
-    async def upload_embedding_model_key(self, payload: CreateRequestEmbbedingModelSchema) -> ResponseEmbbedingModelSchema:
+    async def upload_embedding_model_key(
+        self, payload: CreateRequestEmbbedingModelSchema
+    ) -> ResponseEmbbedingModelSchema:
         """
         User inputs:
             -  Embedding model API Key, model name, temperatur, provider
@@ -39,33 +44,39 @@ class EmbeddingModelAPIKeyService:
             payload_dict = payload.model_dump()
             
             raw_embedding_model_key = payload_dict['api_key']
+            embedding_model_name = payload_dict["embedding_model_name"].lower().strip()
+            provider = payload_dict["provider"].lower().strip()
+            
+            if not embedder_provider_validator(provider):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Embedder model provider not supported."
+                )
+            
+            if not embedder_provider_mapper(embedding_model_name, provider):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Embedder model name and provider combination not supported."
+                )
             
             # test the model if it has token
-            try:
-                test_embedding_model = await asyncio.to_thread(
-                    self.test_embedding_model_api_key,
-                    raw_embedding_model_key,
-                    payload_dict["embedding_model_name"],
-                )
-            except Exception:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Embedding Model API key is invalid or failed to authenticate."
-                )
-            
-            if test_embedding_model["status"] != "success":
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Embedding Model API key failed: empty embedding returned."
-                )
+            await self.test_embedding_model_api_key(
+                api_key=raw_embedding_model_key,
+                provider=provider,
+                model_name=embedding_model_name
+            )
             
             if settings.ENCRYPTION_KEY is None:
                 raise ValueError("Encryption key not set.")
             
-            payload_dict.update({'api_key_encrypted': self.encrypt_api_key(
-                encryption_key=settings.ENCRYPTION_KEY,
-                api_key_string=raw_embedding_model_key
-            )})
+            payload_dict.update({
+                'api_key_encrypted': self.encrypt_api_key(
+                    encryption_key=settings.ENCRYPTION_KEY,
+                    api_key_string=raw_embedding_model_key
+                ),
+                "embedding_model_name": embedding_model_name,
+                "provider": provider
+            })
             
             payload_dict.pop("api_key") # remove the raw api_key
             
@@ -95,73 +106,101 @@ class EmbeddingModelAPIKeyService:
         """
         Update: embedding_model_keys
         Not to update: id, user_id, created_at and original chatbot_id
-        
+
         Validation:
-        Pass API key with model name undergoes minimal test call
-        Broken API key wont reach the repo
+        - All old fields are required (current state from client)
+        - New fields are optional (only what changed)
+        - Decrypt old key to compare with new key
+        - Validate provider and model name combination
+        - Test effective key against effective model/provider
+        - Only update fields that actually changed
         """
         try:
-            payload_dict = payload.model_dump(exclude_unset=True) # only fields client actually sent
-            raw_embedding_model_key = payload_dict.get("api_key", None)
-            
-            if raw_embedding_model_key:
-                # test new api key
-                try:
-                    test_embedding_model = await asyncio.to_thread(
-                        self.test_embedding_model_api_key,
-                        raw_embedding_model_key,
-                        payload_dict["embedding_model_name"],
-                    )
-                except Exception:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="Embedding Model API key is invalid or failed to authenticate."
-                    )
-                    
-                if test_embedding_model["status"] != "success":
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="Embedding Model API key failed: empty embedding returned."
-                    )
-                
-                if settings.ENCRYPTION_KEY is None:
-                    raise ValueError("Encryption key not set.")
-                            
-                # encrypt updated api key if there is 
-                if payload_dict["api_key"]:
-                    payload_dict.update({'api_key_encrypted': self.encrypt_api_key(
-                        encryption_key=settings.ENCRYPTION_KEY,
-                        api_key_string=raw_embedding_model_key
-                    )})
-                    payload_dict.pop("api_key") # remove the raw api_key
-            
-            project_id = payload_dict["project_id"]
-            
-            # Strip out protected fields from payload
-            protected_fields = {"id", "user_id", "chatbot_id", "created_at"}
-            update_data = {k: v for k, v in payload_dict.items() if k not in protected_fields}
-                        
-            if not update_data:
+            if settings.ENCRYPTION_KEY is None:
+                raise ValueError("Encryption key not set.")
+
+            # Decrypt old key for comparison
+            old_raw_api_key = self.decrypt_api_key(
+                encryption_key=settings.ENCRYPTION_KEY,
+                encrypted_key_str=payload.old_encrypted_api_key
+            )
+
+            # Determine effective values — use new if provided, else fall back to old
+            effective_model_name = payload.new_embedding_model_name.lower().strip() if payload.new_embedding_model_name else payload.old_embedding_model_name
+            effective_provider = payload.new_provider.lower().strip() if payload.new_provider else payload.old_provider
+            effective_raw_key = payload.new_raw_api_key.strip() if payload.new_raw_api_key else old_raw_api_key
+
+            # Check if anything actually changed
+            nothing_changed = (
+                effective_raw_key == old_raw_api_key
+                and effective_model_name == payload.old_embedding_model_name
+                and effective_provider == payload.old_provider
+            )
+            if nothing_changed:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="No changes detected. Update skipped."
+                )
+
+            # Validate provider
+            if not embedder_provider_validator(effective_provider):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Embedder model provider not supported."
+                )
+
+            # Validate provider and model name combination
+            if not embedder_provider_mapper(effective_model_name, effective_provider):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Embedder model name and provider combination not supported."
+                )
+
+            # Test effective key against effective model and provider
+            await self.test_embedding_model_api_key(
+                api_key=effective_raw_key,
+                model_name=effective_model_name,
+                provider=effective_provider
+            )
+
+            # Build update fields — only include what actually changed
+            fields_to_update = {}
+
+            if effective_raw_key != old_raw_api_key:
+                fields_to_update["api_key_encrypted"] = self.encrypt_api_key(
+                    encryption_key=settings.ENCRYPTION_KEY,
+                    api_key_string=effective_raw_key
+                )
+
+            if effective_model_name != payload.old_embedding_model_name:
+                fields_to_update["embedding_model_name"] = effective_model_name
+
+            if effective_provider != payload.old_provider:
+                fields_to_update["provider"] = effective_provider
+
+            if not fields_to_update:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="No valid fields provided for Embedding Model API key update."
                 )
-                
+
+            # Patch
             embedding_model_key: EmbeddingModelKey = await self.chatbot_repo.patch_embedding_model_key(
-                project_id=project_id, payload=update_data
+                project_id=payload.project_id,
+                payload=fields_to_update
             )
-            
+
             if embedding_model_key is None:
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                    detail=f"Embedding Model API key failed to update."
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Embedding Model API key failed to update."
                 )
-                
-            # delete redis cached chatbot config data
+
+            # Invalidate redis cache
             await redis_service.invalidate_chatbot_config_data_cache(
                 embedding_model_key.chatbot_id
             )
-                
+            
             return ResponseEmbbedingModelSchema(
                 id=embedding_model_key.id,
                 user_id=embedding_model_key.user_id,
@@ -172,14 +211,14 @@ class EmbeddingModelAPIKeyService:
                 created_at=embedding_model_key.created_at,
                 updated_at=embedding_model_key.updated_at
             )
-                    
+
         except HTTPException:
             raise
         except Exception as e:
             await self.db.rollback()
             raise e
-    
-
+        
+        
     # =========================================================================
     # HELPER METHODS
     # =========================================================================
@@ -193,28 +232,21 @@ class EmbeddingModelAPIKeyService:
         cipher_suite = Fernet(encryption_key.encode())
         return cipher_suite.decrypt(encrypted_key_str.encode()).decode()
 
-    def test_embedding_model_api_key(
-        self,
-        api_key: str,
-        model_name: str = "models/gemini-embedding-001", 
-    ) -> dict:
+    async def test_embedding_model_api_key(
+        self, api_key: str, model_name: str, provider: str,
+    ):
         """
         Test Embedding model key if working
         """
-        embedding_model = GoogleGenerativeAIEmbeddings(
-            api_key=api_key,
-            model=model_name
-        )
-        
-        # minimal test string — raises if key/model is invalid
-        test_vector = embedding_model.embed_query("Hello World!")
-        
-        # Validate structure
-        if isinstance(test_vector, list) and len(test_vector) > 0:
-            return {
-                "status": "success",
-                "vector_dimension": len(test_vector)
-            }
-
-        return {"status": "failed", "reason": "Empty embedding returned"}
+        try:
+            retriever = RetrieverFactory.create_retrieval(
+                provider=provider, api_key=api_key,
+                model_name=model_name, qdrant=self.qdrant
+            )
+            await retriever.test_retrieve_embeddings()
+        except ValueError as e:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        except (EmbedderAuthError, EmbedderModelNotFoundError, 
+                EmbedderRateLimitError, EmbedderConnectionError) as e:
+            BaseRetriever.raise_http_from_retrieval_error(e)
         
