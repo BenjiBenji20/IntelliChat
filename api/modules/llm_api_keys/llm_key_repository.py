@@ -39,6 +39,6 @@ class LlmKeyRepository(BaseCrudRepository[LlmKey]):
             raise
         
         except Exception:
-            self.db.rollback()
+            await self.db.rollback()
             raise
     
