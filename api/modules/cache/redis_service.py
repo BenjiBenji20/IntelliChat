@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import Any
 from uuid import UUID
@@ -6,6 +7,39 @@ from upstash_redis.asyncio import Redis
 from api.configs.settings import settings
 
 logger = logging.getLogger(__name__)
+
+"""
+    caching prefixes:
+        Frequent data query: 
+            key={project_id} or key={chatbot_id}, prefix=freq_data_(data info)
+        API keys:
+            key={chatbot_id}. prefix=api_key_(key info)
+        Secret keys:
+            key={project_id} or key={chatbot_id}, prefix=secret_key
+        Embeddings:
+            key={chatbot_id}_{normalized_user_query}, prefix=query_embeddings
+        Tests:
+            key={chatbot_id}_{}, prefix=test_(test info)
+            
+"""
+# FREQUENT QUERY
+FREQ_CACHE_PREFIX = "freq_data_"
+FREQ_CACHE_TTL = 43_200 # 12 hours
+
+# API KEY
+API_KEY_CACHE_PREFIX = "api_key_"
+API_KEY_CACHE_TTL    = 43_200       # 12 hours
+
+# SECRET KEY
+# SECRET_KEY_CACHE_PREFIX = "secret_key"
+
+# TEST
+TEST_CACHE_PREFIX = "test_"
+TEST_CACHE_TTL = 600
+
+# EMBEDDINGDS
+EMBEDDING_CACHE_PREFIX = "query_embeddings"
+EMBEDDING_CACHE_TTL = 600 # 10mins
 
 
 class RedisService:
@@ -84,7 +118,6 @@ class RedisService:
             logger.warning(f"Redis pipeline SET failed: {e}")
             return False
         
-        
     async def set_hash(
         self,
         key: str,
@@ -97,6 +130,27 @@ class RedisService:
         try:
             # Serialize all values to string
             serialized = {k: str(v) for k, v in data.items()}
+            await self._client.hset(full_key, values=serialized)
+            if ttl:
+                await self._client.expire(full_key, ttl)
+            return True
+        except Exception as e:
+            logger.warning(f"Redis HSET failed for key '{full_key}': {e}")
+            return False
+        
+        
+    async def set_nested_dict_hash(
+        self,
+        key: str,
+        data: dict[str, Any],
+        prefix: str = "",
+        ttl: int | None = None,
+    ) -> bool:
+        """Store a dict as a Redis Hash."""
+        full_key = self._build_key(prefix, key)
+        try:
+            # Serialize values - use JSON for nested dicts, str for primitives
+            serialized = {k: json.dumps(v, default=str) for k, v in data.items()}
             await self._client.hset(full_key, values=serialized)
             if ttl:
                 await self._client.expire(full_key, ttl)
@@ -132,8 +186,7 @@ class RedisService:
             logger.warning(f"Redis pipeline DELETE failed: {e}")
             return False
         
-        
-    async def invalidate_chatbot_config_data_cache(self, chatbot_id: UUID) -> None:
+    async def invalidate_chatbot_config_data_cache(self, key: UUID, prefix: str) -> None:
         """
         Call this from any service that updates:
             - LLM API keys
@@ -143,11 +196,11 @@ class RedisService:
         The next chat() or test_chat() request will re-fetch from DB and
         repopulate the cache automatically.
         """
-        deleted = await self.delete(key=str(chatbot_id), prefix="chatbot_config_data")
+        deleted = await self.delete(key=str(key), prefix=prefix)
         if deleted:
-            logger.info(f"[CACHE INVALIDATED] chatbot_config_data for chatbot {chatbot_id}.")
+            logger.info(f"[CACHE INVALIDATED] {prefix} for chatbot {key}.")
         else:
-            logger.warning(f"[CACHE INVALIDATE FAILED] chatbot_config_data for chatbot {chatbot_id}.")
+            logger.warning(f"[CACHE INVALIDATE FAILED] {prefix} for chatbot {key}.")
 
     # -------------------------
     # SUPPORTING METHODS
@@ -172,7 +225,6 @@ class RedisService:
             logger.warning(f"Redis EXPIRE failed for key '{full_key}': {e}")
             return False
         
-        
     async def get_hash(
         self,
         key: str,
@@ -186,7 +238,6 @@ class RedisService:
         except Exception as e:
             logger.warning(f"Redis HGETALL failed for key '{full_key}': {e}")
             return None
-
 
     async def get_hash_field(
         self,
