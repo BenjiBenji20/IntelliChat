@@ -35,4 +35,5 @@ class Chatbot(Base):
     llm_keys = relationship("LlmKey", back_populates="chatbot", cascade="all, delete")
     project = relationship("Project", back_populates="chatbots", uselist=False)
     chatbot_behavior = relationship("ChatbotBehavior", back_populates="chatbot", cascade="all, delete", uselist=False)
+    chunking_configurations = relationship("ChunkingConfiguration", back_populates="chatbot")
     

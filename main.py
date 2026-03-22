@@ -32,6 +32,7 @@ from api.models.project import Project
 from api.models.project_member import ProjectMember
 from api.models.project_invitation import ProjectInvitation
 from api.models.chatbot_behavior import ChatbotBehavior
+from api.models.chunking_configuration import ChunkingConfiguration
 
 from api.configs.qdrant import init_qdrant_client
 
