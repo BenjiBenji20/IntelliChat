@@ -1,23 +1,21 @@
-from datetime import datetime, timezone
-
 from fastapi import HTTPException, status
-from groq import Groq
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
-import asyncio
+import json
 
 from api.models.chatbot import Chatbot
 from api.modules.chatbot.chatbot_schema import *
 from api.modules.chatbot.chatbot_repository import ChatbotRepository
-from api.configs.settings import settings
-from shared.keys import decrypt_secret
+from api.modules.cache.redis_service import redis_service, FREQ_CACHE_PREFIX, FREQ_CACHE_TTL
+
 
 class ChatbotService:
     def __init__(self, db: AsyncSession):
         self.db = db
+        self.cache_prefix=f"{FREQ_CACHE_PREFIX}(chatbot_current_state)"
         self.chatbot_repo = ChatbotRepository(db)
 
-    async def check_chatbot_step(self, project_id: UUID) -> ChatbotStateSchema:
+    async def chatbot_current_state(self, project_id: UUID) -> ChatbotStateSchema:
         """
         Check the current chatbot state
         This will be use for persistent chatbot configuration
@@ -28,14 +26,40 @@ class ChatbotService:
         "embedding_completed": true/false
         """
         try:
-            state = await self.chatbot_repo.get_chatbot_setup_status(project_id)
+            # holds None value if not hit
+            cached_state = await redis_service.get_hash(key=str(project_id), prefix=self.cache_prefix)
             
-            if state is None:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Project not found."
-                )
-
+            if cached_state:
+                # Deserialize string values back to correct types
+                state = {
+                    "chatbot_id": json.loads(cached_state.get("chatbot_id")),
+                    "chatbot_completed": json.loads(cached_state.get("chatbot_completed")),
+                    "llm_completed": json.loads(cached_state.get("llm_completed")),
+                    "embedding_completed": json.loads(cached_state.get("embedding_completed")),
+                    "chatbot_data": json.loads(cached_state.get("chatbot_data")),
+                    "llm_data": json.loads(cached_state.get("llm_data")),
+                    "embedding_data": json.loads(cached_state.get("embedding_data")),
+                }
+            else:
+                state = await self.chatbot_repo.get_chatbot_setup_status(project_id)
+                if state is None:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="Project not found."
+                    )
+            
+            # cache state in redis
+            if not cached_state:
+                attempts = 0
+                is_cached = False
+                while not is_cached and attempts < 3: # make 3 attempts
+                    is_cached = await redis_service.set_nested_dict_hash(
+                        key=str(project_id), prefix=self.cache_prefix,
+                        data=state, ttl=FREQ_CACHE_TTL # 12hrs
+                    )
+                    attempts += 1
+                # delete key on update data
+                
             return ChatbotStateSchema(
                 chatbot_id=state["chatbot_id"],
                 chatbot_completed=state["chatbot_completed"],
@@ -117,6 +141,12 @@ class ChatbotService:
                     detail=f"Chatbot {update_data["application_name"]} failed to update."
                 )
                 
+            # delete cached chatbot current state data
+            # does not invalidate cached api_key_(chatbot_config_data) since its just holding api keys
+            await redis_service.invalidate_chatbot_config_data_cache(
+                key=project_id, prefix=self.cache_prefix
+            )
+            
             return ResponseChatbotSchema(
                 id=chatbot.id,
                 user_id=chatbot.user_id,
