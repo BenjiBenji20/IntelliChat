@@ -24,11 +24,6 @@ async def intellichat_secret(
     request key [raw] -> hashed raw key -> db [encrypted key] = 
     match [hashed request key == decoded key, project_id == id ??]
     """
-
-    """
-    TODO:
-        cache secret key ttl=1hr
-    """
     try:
         if not settings.ENCRYPTION_KEY:
             raise HTTPException(
