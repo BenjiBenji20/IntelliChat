@@ -93,6 +93,11 @@ class ChatbotService:
                     detail=f"Chatbot {payload_dict["application_name"]} failed to create."
                 )
                 
+            # invalidate chatbot current state cache
+            await redis_service.invalidate_chatbot_config_data_cache(
+                key=str(payload_dict["project_id"]), prefix=self.cache_prefix
+            )
+            
             return ResponseChatbotSchema(
                 id=chatbot.id,
                 user_id=chatbot.user_id,
