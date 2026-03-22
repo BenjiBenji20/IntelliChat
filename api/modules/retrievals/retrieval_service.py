@@ -14,12 +14,15 @@ from api.modules.retrievals.retrieval_schema import (
 )
 from api.modules.retrievals.retrievers.retriever_factory import RetrieverFactory
 from api.modules.embedding_model_api_keys.embedding_model_key_repository import EmbeddingModelKeyRepository
-from api.modules.cache.redis_service import redis_service
+from api.modules.cache.redis_service import (
+    redis_service, TEST_CACHE_PREFIX, 
+    TEST_CACHE_TTL, FREQ_CACHE_PREFIX,
+    FREQ_CACHE_TTL, EMBEDDING_CACHE_PREFIX
+)
 from api.configs.settings import settings
 from shared.keys import decrypt_secret
 from shared.str_normalizers import str_normalizer
 from shared.vector_details import create_collection_name
-import aiohttp
 
 logger = logging.getLogger(__name__)
  
@@ -27,13 +30,14 @@ class RetrieveEmbeddingsService:
     def __init__(self, qdrant: AsyncQdrantClient, db: AsyncSession) -> None:
         self.qdrant = qdrant
         self.embedding_model_repo = EmbeddingModelKeyRepository(db)
+        self.cache_prefix = f"{TEST_CACHE_PREFIX}(embeddings)"
 
 
     async def test_retrieval(self, chatbot_id: UUID, payload: RetrievalRequestSchema):
         try:
-            prefix = "test_retrieval"
+            # holds None value if not hit
             model_details_in_redis = await redis_service.get_hash(
-                key=str(chatbot_id), prefix=prefix
+                key=str(chatbot_id), prefix=self.cache_prefix
             )
 
             model_details = model_details_in_redis
@@ -54,7 +58,8 @@ class RetrieveEmbeddingsService:
                 provider=model_details["embedding_provider"],
                 api_key=api_key,
                 model_name=model_details["embedding_model_name"],
-                cache_prefix="test_query_embeddings",
+                cache_ttl=TEST_CACHE_TTL,
+                cache_prefix=self.cache_prefix,
                 payload=payload
             )
 
@@ -63,7 +68,8 @@ class RetrieveEmbeddingsService:
                 is_cached = False 
                 while not is_cached and i < 3:
                     is_cached = await redis_service.set_hash(
-                        key=str(chatbot_id), data=model_details, prefix=prefix, ttl=3600
+                        key=str(chatbot_id), data=model_details, 
+                        prefix=self.cache_prefix, ttl=TEST_CACHE_TTL
                     )
                     i += 1
 
@@ -83,7 +89,8 @@ class RetrieveEmbeddingsService:
         api_key: str, # raw embedding model api_key
         model_name: str,
         payload: RetrievalRequestSchema,
-        cache_prefix: str = "query_embeddings",
+        cache_ttl: int,
+        cache_prefix: str = EMBEDDING_CACHE_PREFIX,
     ) -> RetrievalResponseSchema | None:
         """
         Can be use for test retrieval chatbox,
@@ -127,7 +134,7 @@ class RetrieveEmbeddingsService:
                     key=cached_key,
                     value=response.model_dump_json(),
                     prefix=cache_prefix,
-                    ttl=3600
+                    ttl=cache_ttl
                 )
             )
                     
@@ -143,7 +150,7 @@ class RetrieveEmbeddingsService:
     async def get_collection_stats(self, chatbot_id: UUID) -> CollectionStatsSchema | None:
         try:
             collection_name = create_collection_name(chatbot_id)
-            redis_prefix = "collection_stats"
+            redis_prefix = f"{FREQ_CACHE_PREFIX}(collection_stats)"
 
             # check redis first
             cached = await redis_service.get(key=collection_name, prefix=redis_prefix)
@@ -169,12 +176,12 @@ class RetrieveEmbeddingsService:
                 storage_kb=int(estimated_kb),
             )
 
-            # cache for 3 days
+            # cache for 12hrs
             await redis_service.set(
-                    key=collection_name,
+                    key=str(chatbot_id), # own key
                     value=stats.model_dump_json(),
                     prefix=redis_prefix,
-                    ttl=259200
+                    ttl=FREQ_CACHE_TTL
                 )
 
             return stats

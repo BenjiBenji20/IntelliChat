@@ -15,14 +15,11 @@ from api.modules.embedding_model_api_keys.embedding_model_key_repository import 
 from api.modules.behavior_studio.behavior_studio_repository import ChatbotBehaviorRepository
 from api.configs.settings import settings
 from shared.keys import decrypt_secret
-from api.modules.cache.redis_service import redis_service
+from api.modules.cache.redis_service import redis_service, API_KEY_CACHE_PREFIX, API_KEY_CACHE_TTL
 
 logger = logging.getLogger(__name__)
 
-_CACHE_PREFIX = "chatbot_config_data"
-_CACHE_TTL    = 43_200       # 12 hours
 _NONE_SENTINEL = "__none__"  # marks optional fields that are genuinely absent
-
 
 class IntelliChatService:
 
@@ -32,6 +29,7 @@ class IntelliChatService:
         self.llm_key_repo = LlmKeyRepository(db)
         self.embedding_model_repo = EmbeddingModelKeyRepository(db)
         self.chatbot_behavior_repo = ChatbotBehaviorRepository(db)
+        self.cache_prefix = f"{API_KEY_CACHE_PREFIX}(chatbot_config_data)"
 
     # -------------------------------------------------------------------------
     # chat() — full RAG, all config required
@@ -70,7 +68,7 @@ class IntelliChatService:
                 session_id=session_id,
                 query=query,
                 system_prompt=system_prompt,
-                temperature=llm_data["temperature"],
+                temperature=float(llm_data["temperature"]),
                 embedding_provider=embedding_model_data["embedding_provider"],
                 embedding_api_key=embedding_model_data["embedding_api_key"],
                 embedding_model_name=embedding_model_data["embedding_model_name"],
@@ -146,7 +144,7 @@ class IntelliChatService:
                 session_id=session_id,
                 query=query,
                 system_prompt=system_prompt,
-                temperature=llm_data.get("temperature", 0.70) if llm_data else 0.70,
+                temperature=float(llm_data.get("temperature", 0.70)) if llm_data else 0.70,
                 embedding_provider=embedding_model_data.get("embedding_provider") if embedding_model_data else None,
                 embedding_api_key=embedding_model_data.get("embedding_api_key") if embedding_model_data else None,
                 embedding_model_name=embedding_model_data.get("embedding_model_name") if embedding_model_data else None,
@@ -181,7 +179,7 @@ class IntelliChatService:
             3. Fire-and-forget write to Redis Hash
             4. Return fresh data
 
-        What is cached (Redis Hash key: "chatbot_config_data:{chatbot_id}"):
+        What is cached (Redis Hash key: "api_key_(chatbot_config_data):{chatbot_id}"):
             llm_api_key, llm_model_name, llm_provider
             embedding_api_key, embedding_model_name,
             embedding_provider, temperature
@@ -191,13 +189,13 @@ class IntelliChatService:
 
         TTL: 12 hours. Invalidate with invalidate_chatbot_config_data_cache().
         """
-        cached = await redis_service.get_hash(key=str(chatbot_id), prefix=_CACHE_PREFIX)
+        cached = await redis_service.get_hash(key=str(chatbot_id), prefix=self.cache_prefix)
 
         if cached:
-            logger.info(f"[CACHE HIT] chatbot_config_data for chatbot {chatbot_id}.")
+            logger.info(f"[CACHE HIT] api_key_(chatbot_config_data) for chatbot {chatbot_id}.")
             return self._unpack_config_cache(cached, require_embedding, chatbot_id)
 
-        logger.info(f"[CACHE MISS] chatbot_config_data for chatbot {chatbot_id}. Fetching from DB.")
+        logger.info(f"[CACHE MISS] api_key_(chatbot_config_data) for chatbot {chatbot_id}. Fetching from DB.")
 
         llm_data = await self.get_llm_data(chatbot_id)
         embedding_model_data = await self.get_embedding_model_data(
@@ -249,14 +247,14 @@ class IntelliChatService:
         success = await redis_service.set_hash(
             key=str(chatbot_id),
             data=payload,
-            prefix=_CACHE_PREFIX,
-            ttl=_CACHE_TTL,
+            prefix=self.cache_prefix,
+            ttl=API_KEY_CACHE_TTL,
         )
 
         if success:
-            logger.info(f"[CACHE SET] chatbot_config_data stored for chatbot {chatbot_id}.")
+            logger.info(f"[CACHE SET] api_key_(chatbot_config_data) stored for chatbot {chatbot_id}.")
         else:
-            logger.warning(f"[CACHE SET FAILED] chatbot_config_data for chatbot {chatbot_id}.")
+            logger.warning(f"[CACHE SET FAILED] api_key_(chatbot_config_data) for chatbot {chatbot_id}.")
 
 
     def _unpack_config_cache(
@@ -323,7 +321,7 @@ class IntelliChatService:
                 "llm_api_key": llm_api_key,
                 "llm_name": llm_details["llm_name"],
                 "llm_provider": llm_details["llm_provider"],
-                "temperature": llm_details["temperature"],
+                "temperature": float(llm_details["temperature"]),
                 
             }
 

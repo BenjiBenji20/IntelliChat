@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from groq import Groq
 import asyncio
 
-from api.modules.cache.redis_service import redis_service
+from api.modules.cache.redis_service import API_KEY_CACHE_PREFIX, redis_service, FREQ_CACHE_PREFIX
 from api.models.llm_key import LlmKey
 from api.modules.chat.llm.base_llm import *
 from api.modules.chatbot.chatbot_repository import ChatbotRepository
@@ -27,6 +27,7 @@ class ChatbotAPIKeyService:
         self.chatbot_repo = ChatbotRepository(db)
         self.llm_key_repo = LlmKeyRepository(db)
         self.embedding_model_key_repo = EmbeddingModelKeyRepository(db)
+        self.cached_prefix = f"{API_KEY_CACHE_PREFIX}(chatbot_config_data)"
     
     
     async def upload_llm_key(self, payload: CreateRequestLlmSchema) -> ResponseLlmSchema:
@@ -45,6 +46,9 @@ class ChatbotAPIKeyService:
             raw_llm_key = payload_dict['api_key']
             llm_name = payload_dict["llm_name"]
             provider = payload_dict["provider"]
+            # get and pop project_id 
+            project_id = payload_dict["project_id"] # use for invalidate caching
+            payload_dict.pop("project_id")
             
             if not llm_provider_validator(provider):
                 raise HTTPException(
@@ -77,11 +81,23 @@ class ChatbotAPIKeyService:
             payload_dict.pop("api_key") # remove the raw api_key
             
             llm_key: LlmKey = await self.llm_key_repo.create(**payload_dict)
+            
+            if not llm_key:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Failed to register API key. Please try again."
+                )
+                
+            # invalidate chatbot current state cache
+            await redis_service.invalidate_chatbot_config_data_cache(
+                key=str(project_id), prefix=f"{FREQ_CACHE_PREFIX}(chatbot_current_state)"
+            )
         
             return ResponseLlmSchema(
                 id=llm_key.id,
                 user_id=llm_key.user_id,
                 chatbot_id=llm_key.chatbot_id,
+                project_id=project_id,
                 api_key=llm_key.api_key_encrypted,
                 llm_name=llm_key.llm_name,
                 temperature=llm_key.temperature,
@@ -198,7 +214,10 @@ class ChatbotAPIKeyService:
                 )
 
             # Invalidate redis cache
-            await redis_service.invalidate_chatbot_config_data_cache(llm_key.chatbot_id)
+            await redis_service.invalidate_chatbot_config_data_cache(
+                key=llm_key.chatbot_id,
+                prefix=self.cached_prefix
+            )
 
             return ResponseLlmSchema(
                 id=llm_key.id,

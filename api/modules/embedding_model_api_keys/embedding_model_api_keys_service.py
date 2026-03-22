@@ -4,7 +4,7 @@ from qdrant_client import AsyncQdrantClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.models.embedding_model_key import EmbeddingModelKey
-from api.modules.cache.redis_service import redis_service
+from api.modules.cache.redis_service import redis_service, API_KEY_CACHE_PREFIX, FREQ_CACHE_PREFIX
 from api.modules.chatbot.chatbot_repository import ChatbotRepository
 from api.modules.llm_api_keys.llm_key_repository import LlmKeyRepository
 from api.modules.embedding_model_api_keys.embedding_model_key_repository import EmbeddingModelKeyRepository
@@ -27,6 +27,7 @@ class EmbeddingModelAPIKeyService:
         self.chatbot_repo = ChatbotRepository(db)
         self.llm_key_repo = LlmKeyRepository(db)
         self.embedding_model_key_repo = EmbeddingModelKeyRepository(db)
+        self.cached_prefix = f"{API_KEY_CACHE_PREFIX}(chatbot_config_data)"
     
     async def upload_embedding_model_key(
         self, payload: CreateRequestEmbbedingModelSchema
@@ -44,8 +45,11 @@ class EmbeddingModelAPIKeyService:
             payload_dict = payload.model_dump()
             
             raw_embedding_model_key = payload_dict['api_key']
-            embedding_model_name = payload_dict["embedding_model_name"].lower().strip()
-            provider = payload_dict["provider"].lower().strip()
+            embedding_model_name = payload_dict["embedding_model_name"]
+            provider = payload_dict["provider"]
+            # get and pop project_id 
+            project_id = payload_dict["project_id"] # use for invalidate caching
+            payload_dict.pop("project_id")
             
             if not embedder_provider_validator(provider):
                 raise HTTPException(
@@ -81,9 +85,21 @@ class EmbeddingModelAPIKeyService:
             payload_dict.pop("api_key") # remove the raw api_key
             
             embedding_model_key: EmbeddingModelKey = await self.embedding_model_key_repo.create(**payload_dict)
+            
+            if not embedding_model_key:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Failed to register API key. Please try again."
+                )
+
+            # invalidate chatbot current state cache
+            await redis_service.invalidate_chatbot_config_data_cache(
+                key=str(project_id), prefix=f"{FREQ_CACHE_PREFIX}(chatbot_current_state)"
+            )
         
             return ResponseEmbbedingModelSchema(
                 id=embedding_model_key.id,
+                project_id=project_id,
                 user_id=embedding_model_key.user_id,
                 chatbot_id=embedding_model_key.chatbot_id,
                 api_key=embedding_model_key.api_key_encrypted,
@@ -126,8 +142,8 @@ class EmbeddingModelAPIKeyService:
             )
 
             # Determine effective values — use new if provided, else fall back to old
-            effective_model_name = payload.new_embedding_model_name.lower().strip() if payload.new_embedding_model_name else payload.old_embedding_model_name
-            effective_provider = payload.new_provider.lower().strip() if payload.new_provider else payload.old_provider
+            effective_model_name = payload.new_embedding_model_name if payload.new_embedding_model_name else payload.old_embedding_model_name
+            effective_provider = payload.new_provider if payload.new_provider else payload.old_provider
             effective_raw_key = payload.new_raw_api_key.strip() if payload.new_raw_api_key else old_raw_api_key
 
             # Check if anything actually changed
@@ -198,7 +214,8 @@ class EmbeddingModelAPIKeyService:
 
             # Invalidate redis cache
             await redis_service.invalidate_chatbot_config_data_cache(
-                embedding_model_key.chatbot_id
+                key=embedding_model_key.chatbot_id,
+                prefix=self.cached_prefix
             )
             
             return ResponseEmbbedingModelSchema(
