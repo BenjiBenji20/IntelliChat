@@ -9,6 +9,7 @@ from api.modules.chat.llm.base_llm import BaseLLM
 from api.modules.chat.chat_schema import *
 from api.modules.retrievals.retrieval_schema import RetrievalResponseSchema
 from api.modules.retrievals.retrieval_service import RetrieveEmbeddingsService
+from api.modules.cache.redis_service import EMBEDDING_CACHE_PREFIX, EMBEDDING_CACHE_TTL
  
 logger = logging.getLogger(__name__)
  
@@ -62,6 +63,8 @@ class IntelliChat:
                     provider=embedding_provider,
                     api_key=embedding_api_key,
                     model_name=embedding_model_name,
+                    cache_prefix=EMBEDDING_CACHE_PREFIX,
+                    cache_ttl=EMBEDDING_CACHE_TTL,
                     payload=RetrievalRequestSchema(query=query, top_k=top_k),
                 )
                 if retrieval and retrieval.results:
