@@ -27,5 +27,5 @@ class ChunkingConfiguration(Base):
 
     # relationships
     chatbot = relationship("Chatbot", back_populates="chunking_configurations", uselist=False)
-    document = relationship("Document", back_populates="chunking_configurations", uselist=False)
+    chunking_configurations = relationship("ChunkingConfiguration", back_populates="document",  cascade="all, delete-orphan")
     
