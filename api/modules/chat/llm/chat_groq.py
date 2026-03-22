@@ -10,11 +10,13 @@ logger = logging.getLogger(__name__)
 class ChatGroq(BaseLLM):
     """
     Supported groq models:
-        "Groq": [
-            "openai/gpt-oss-120b",
-            "llama-3.3-70b-versatile",
-            "llama-3.1-8b-instant",
-            "mixtral-8x7b-32768"
+        "groq": [
+            "openai/gpt-oss-120b",          # Max: 131,072 ctx / 65,536 completion
+            "openai/gpt-oss-20b",           # Max: 131,072 ctx / 65,536 completion — fast & cheap
+            "llama-3.3-70b-versatile",      # Max: 131,072 ctx / 32,768 completion
+            "llama-3.1-8b-instant",         # Max: 131,072 ctx / 131,072 completion — very fast
+            "whisper-large-v3",
+            "whisper-large-v3-turbo"
         ]
     """
     

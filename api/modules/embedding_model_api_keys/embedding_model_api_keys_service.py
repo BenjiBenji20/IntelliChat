@@ -13,7 +13,7 @@ from api.modules.embedding_model_api_keys.embedding_model_api_keys_schema import
 from api.configs.settings import settings
 from api.modules.retrievals.retrievers.base_retriever import *
 from api.modules.retrievals.retrievers.retriever_factory import RetrieverFactory
-from shared.ai_models_details import embedder_provider_mapper, embedder_provider_validator
+from shared.ai_models_details import embedder_provider_mapper, SUPPORTED_EMBEDDING_PROVIDERS
 
 from logging import getLogger
 
@@ -57,7 +57,7 @@ class EmbeddingModelAPIKeyService:
             project_id = payload_dict["project_id"] # use for invalidate caching
             payload_dict.pop("project_id")
             
-            if not embedder_provider_validator(provider):
+            if provider not in SUPPORTED_EMBEDDING_PROVIDERS:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Embedder model provider not supported."
@@ -165,7 +165,7 @@ class EmbeddingModelAPIKeyService:
                 )
 
             # Validate provider
-            if not embedder_provider_validator(effective_provider):
+            if effective_provider not in SUPPORTED_EMBEDDING_PROVIDERS:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Embedder model provider not supported."

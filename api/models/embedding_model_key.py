@@ -27,8 +27,7 @@ class EmbeddingModelKey(Base):
         ),
         CheckConstraint(
             "embedding_model_name IN ("
-            "'gemini-embedding-001','text-embedding-005',"
-            "'text-multilingual-embedding-002','gemini-embedding-2-preview'"
+                "'gemini-embedding-001','text-embedding-004', 'gemini-embedding-2-preview'"
             ")",
             name="embedding_model_keys_embedding_model_check"
         ),
