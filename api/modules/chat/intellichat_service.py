@@ -229,7 +229,7 @@ class IntelliChatService:
             llm_provider          — e.g. "Groq"
             embedding_api_key     — decrypted embedding key  | "__none__" if absent
             embedding_model_name  — e.g. "text-embedding-004"| "__none__" if absent
-            embedding_provider    — e.g. "Google AI Studio"  | "__none__" if absent
+            embedding_provider    — e.g. "google ai studio"  | "__none__" if absent
             temperature           — float as string, default "0.70" if absent
             system_prompt         — raw prompt string        | "__none__" if absent
         """

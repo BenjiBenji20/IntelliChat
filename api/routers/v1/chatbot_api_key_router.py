@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, BackgroundTasks, Depends, status
 from qdrant_client import AsyncQdrantClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
@@ -6,6 +6,8 @@ from uuid import UUID
 from api.configs.qdrant import get_qdrant_client
 from api.db.db_session import get_async_db
 from api.dependencies.auth import get_current_user
+from api.modules.documents.bg_tasks import _enqueue_tasks
+from api.modules.documents.document_schema import ProcessDocumentRequestSchema
 from api.modules.embedding_model_api_keys.embedding_model_api_keys_service import EmbeddingModelAPIKeyService
 from api.modules.llm_api_keys.llm_api_keys_service import ChatbotAPIKeyService
 from api.modules.llm_api_keys.llm_api_keys_schema import *
@@ -13,6 +15,9 @@ from api.modules.chatbot.chatbot_schema import *
 from api.modules.embedding_model_api_keys.embedding_model_api_keys_schema import *
 from api.dependencies.rate_limit import rate_limit_by_user
 
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 router = APIRouter(
     prefix="/api/chatbot/api-key",
@@ -60,6 +65,7 @@ async def upload_embedding_model_key(
 )
 async def update_llm_api_key(
     payload: UpdateRequestLlmSchema,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_async_db),
     _: UUID = Depends(get_current_user)
 ):
@@ -68,7 +74,16 @@ async def update_llm_api_key(
     original id, chatbot_id, created_at and user_id will persist
     """
     service = ChatbotAPIKeyService(db)
-    return await service.update_llm_api_key(payload)
+    response, all_chunk_configs = await service.update_llm_api_key(payload)
+    
+    if all_chunk_configs:
+        task_payloads = [
+            ProcessDocumentRequestSchema(**config).model_dump()
+            for config in all_chunk_configs
+        ]
+        background_tasks.add_task(_enqueue_tasks, task_payloads, "/worker/document/process")
+    
+    return response
 
 
 @router.patch(

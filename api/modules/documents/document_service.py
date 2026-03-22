@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.configs.settings import settings
 from api.models.document import Document
 from api.modules.documents.document_repository import DocumentRepository
+from api.modules.documents.chunking_config_repository import ChunkingConfigurationRepository
 from api.modules.documents.document_schema import *
 from api.modules.documents.gcs_service import (
     SIGNED_URL_UPLOAD_EXPIRY_SECONDS,  # re-exported for response metadata
@@ -35,6 +36,7 @@ class DocumentService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
         self.document_repo = DocumentRepository(db)
+        self.chunking_config_repo = ChunkingConfigurationRepository(db)
 
 
     # ------------------------------------------------------------------
@@ -327,10 +329,24 @@ class DocumentService:
                     "separator": cfg["separator"],
                     "document_type": cfg["document_type"],
                 })
+                
+                chunk_configs_to_create = []
+                chunk_configs_to_create.append({
+                    "document_id": doc_id,
+                    "chatbot_id": str(chatbot_id),
+                    "chunk_size": cfg["chunk_size"],
+                    "chunk_overlap": cfg["chunk_overlap"],
+                    "separator": cfg["separator"],
+                    "document_type": cfg["document_type"],
+                    "content_type": cfg.get("content_type", "knowledge") # hardcoded for now
+                })
 
             # Single UPDATE ... WHERE id IN (...) for all confirmed docs
             if confirmed_ids:
                 await self.document_repo.bulk_update_status(confirmed_ids, "uploaded")
+                
+                for chunk_config in chunk_configs_to_create:
+                    await self.chunking_config_repo.create(**chunk_config)
                 
             return BulkConfirmResponseSchema(confirmed=confirmed_responses, failed=failed), task_payloads
 

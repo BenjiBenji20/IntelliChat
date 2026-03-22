@@ -30,6 +30,7 @@ class DocumentRepository(BaseCrudRepository[Document]):
         chatbot_id: UUID,
         files: list[dict],  # [{"file_name": ..., "file_type": ..., "storage_path": "", "status": "pending"}]
     ) -> list[Document]:
+        print(f"CHATBOT ID: {chatbot_id}")
         documents = [
             Document(
                 user_id=user_id,

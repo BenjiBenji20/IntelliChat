@@ -8,11 +8,16 @@ from api.modules.cache.redis_service import redis_service, API_KEY_CACHE_PREFIX,
 from api.modules.chatbot.chatbot_repository import ChatbotRepository
 from api.modules.llm_api_keys.llm_key_repository import LlmKeyRepository
 from api.modules.embedding_model_api_keys.embedding_model_key_repository import EmbeddingModelKeyRepository
+from api.modules.documents.chunking_config_repository import ChunkingConfigurationRepository
 from api.modules.embedding_model_api_keys.embedding_model_api_keys_schema import *
 from api.configs.settings import settings
 from api.modules.retrievals.retrievers.base_retriever import *
 from api.modules.retrievals.retrievers.retriever_factory import RetrieverFactory
 from shared.ai_models_details import embedder_provider_mapper, embedder_provider_validator
+
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 class EmbeddingModelAPIKeyService:
     def __init__(self, db: AsyncSession, qdrant: AsyncQdrantClient):
@@ -27,6 +32,7 @@ class EmbeddingModelAPIKeyService:
         self.chatbot_repo = ChatbotRepository(db)
         self.llm_key_repo = LlmKeyRepository(db)
         self.embedding_model_key_repo = EmbeddingModelKeyRepository(db)
+        self.chunk_config_repo = ChunkingConfigurationRepository(db)
         self.cached_prefix = f"{API_KEY_CACHE_PREFIX}(chatbot_config_data)"
     
     async def upload_embedding_model_key(
@@ -118,7 +124,7 @@ class EmbeddingModelAPIKeyService:
     
     async def update_embedding_model_api_key(
         self, payload: UpdateRequestEmbeddingModelSchema
-    ) -> ResponseEmbbedingModelSchema:
+    ) -> tuple[ResponseEmbbedingModelSchema, list[dict] | None]:
         """
         Update: embedding_model_keys
         Not to update: id, user_id, created_at and original chatbot_id
@@ -218,6 +224,15 @@ class EmbeddingModelAPIKeyService:
                 prefix=self.cached_prefix
             )
             
+            all_chunk_configs: list[dict] | None = None
+            
+            # if provider and embedding_model_name changes, reembed
+            if fields_to_update.get("embedding_model_name") or fields_to_update.get("provider"):
+                # select only necessary rows. pass as payload for worker
+                logger.info('[INFO] Model name and provider updated. REEMBED DOCUMENTS AGAIN')
+                all_chunk_configs: list[dict] | None = await self.chunk_config_repo.get_all_configs_by_chatbot_id(embedding_model_key.chatbot_id)
+                logger.info(f'[INFO]REEMBEDDING WILL{' NOT ' if not all_chunk_configs else ' '}HAPPEN')
+            
             return ResponseEmbbedingModelSchema(
                 id=embedding_model_key.id,
                 user_id=embedding_model_key.user_id,
@@ -227,7 +242,7 @@ class EmbeddingModelAPIKeyService:
                 provider=embedding_model_key.provider,
                 created_at=embedding_model_key.created_at,
                 updated_at=embedding_model_key.updated_at
-            )
+            ), all_chunk_configs
 
         except HTTPException:
             raise
