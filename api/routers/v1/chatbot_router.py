@@ -25,13 +25,13 @@ router = APIRouter(
     status_code=status.HTTP_200_OK,
     dependencies=[Depends(rate_limit_by_user())]
 )
-async def check_chatbot_step(
+async def chatbot_current_state(
     project_id: UUID,
     db: AsyncSession = Depends(get_async_db),
     current_user_id: UUID = Depends(get_current_user)
 ):
     service = ChatbotService(db)
-    return await service.check_chatbot_step(project_id=project_id)
+    return await service.chatbot_current_state(project_id=project_id)
 
 
 @router.post(
