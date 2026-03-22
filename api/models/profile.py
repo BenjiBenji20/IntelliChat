@@ -37,5 +37,4 @@ class Profile(Base):
     received_invitations = relationship("ProjectInvitation", foreign_keys="ProjectInvitation.invited_username", back_populates="invited_user", cascade="all, delete")
     sent_invitations = relationship("ProjectInvitation", foreign_keys="ProjectInvitation.invited_by", back_populates="inviter", cascade="all, delete")
     chatbot_behaviors = relationship("ChatbotBehavior", back_populates="profile", cascade="all, delete")
-    chunking_configurations = relationship("ChunkingConfiguration", back_populates="profile")
     

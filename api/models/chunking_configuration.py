@@ -11,7 +11,6 @@ class ChunkingConfiguration(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     chatbot_id = Column(UUID(as_uuid=True), ForeignKey("chatbots.id", ondelete="CASCADE"), nullable=False)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("profiles.id", ondelete="CASCADE"), nullable=False)
     document_id = Column(UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
     chunk_size = Column(Integer, default=500)
     chunk_overlap = Column(Integer, default=50)
@@ -28,7 +27,6 @@ class ChunkingConfiguration(Base):
     )
 
     # relationships
-    profile = relationship("Profile", back_populates="chunking_configurations", uselist=False)
     chatbot = relationship("Chatbot", back_populates="chunking_configurations", uselist=False)
     document = relationship("Document", back_populates="chunking_configurations", uselist=False)
     
