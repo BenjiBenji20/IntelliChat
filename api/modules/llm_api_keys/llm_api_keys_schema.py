@@ -1,15 +1,21 @@
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from uuid import UUID
 from datetime import datetime
     
 class CreateRequestLlmSchema(BaseModel):
     user_id: UUID
     chatbot_id: UUID
+    project_id: UUID
     api_key: str
     llm_name: str = Field(..., max_length=100)
     temperature: float = 0.70
     provider: str
+    
+    @field_validator('llm_name', 'provider')
+    @classmethod
+    def normalize(cls, v: str) -> str:
+        return v.lower().strip()
 
 class UpdateRequestLlmSchema(BaseModel):
     project_id: UUID
@@ -25,6 +31,11 @@ class UpdateRequestLlmSchema(BaseModel):
     old_llm_name: str = Field(..., max_length=100)
     old_provider: str 
     old_temperature: float
+    
+    @field_validator('new_llm_name', 'new_provider', 'old_llm_name', 'old_provider')
+    @classmethod
+    def normalize(cls, v: str) -> str:
+        return v.lower().strip()
 
 class ResponseLlmSchema(CreateRequestLlmSchema):
     id: UUID
