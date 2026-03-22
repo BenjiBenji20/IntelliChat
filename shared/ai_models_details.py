@@ -19,18 +19,18 @@ GEMINI_MODEL_VECTOR_MAP = {
 # libraries available in langchain
 def embedder_provider_mapper(model_name: str, provider: str) -> bool:
     EMBEDDER_MODELS_PROVIDER_MAP = {
-        "Google AI Studio": [
+        "google ai studio": [
             "gemini-embedding-001",
             "text-embedding-005",
             "text-multilingual-embedding-002",
             "gemini-embedding-exp-03-07",
         ],
-        "OpenAI": [
+        "openai": [
             "text-embedding-3-small",
             "text-embedding-3-large",
             "text-embedding-ada-002",
         ],
-        "Azure OpenAI": [
+        "azure openai": [
             "text-embedding-3-small",
             "text-embedding-3-large",
             "text-embedding-ada-002",
