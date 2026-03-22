@@ -21,7 +21,6 @@ class ChunkingConfiguration(Base):
     updated_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
     __table_args__ = (
-        Index("idx_chunking_configurations_user_id", "user_id"),
         Index("idx_chunking_configurations_document_id", "document_id"),
         Index("idx_chunking_configurations_chatbot_id", "chatbot_id"),
     )
