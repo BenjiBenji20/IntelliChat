@@ -40,6 +40,24 @@ class QdrantService:
         collection_name = create_collection_name(chatbot_id)
         try:
             exists = await self.client.collection_exists(collection_name)
+            if exists:
+                # for updating a new model name or provider
+                # Check if the existing collection's vector name matches
+                # the arg vector name
+                info = await self.client.get_collection(collection_name)
+                existing_vector_names = list(info.config.params.vectors.keys())
+                
+                if vector_name not in existing_vector_names:
+                    # Model changed — old vector name doesn't exist in collection
+                    # Must delete and recreate entirely
+                    logger.info(
+                        f"QdrantService detected model change for {collection_name}. "
+                        f"Existing vectors: {existing_vector_names}. "
+                        f"New vector: {vector_name}. Recreating collection."
+                    )
+                    await self.client.delete_collection(collection_name)
+                    exists = False  # fall through to create below
+
             if not exists:
                 await self.client.create_collection(
                     collection_name=collection_name,
@@ -50,20 +68,22 @@ class QdrantService:
                         )
                     }
                 )
-                logger.info(
-                    f"QdrantService created collection: {collection_name}"
+                logger.info(f"QdrantService created collection: {collection_name}")
+            try:
+                # Always ensure payload index exists for document_id
+                # Required for delete_document_vectors filter to work
+                await self.client.create_payload_index(
+                    collection_name=collection_name,
+                    field_name="document_id",
+                    field_schema="keyword"
                 )
-            # Always ensure payload index exists for document_id
-            # Required for delete_document_vectors filter to work
-            await self.client.create_payload_index(
-                collection_name=collection_name,
-                field_name="document_id",
-                field_schema="keyword"
-            )
-            logger.info(
-                f"QdrantService ensured payload index on document_id "
-                f"for collection={collection_name}"
-            )
+                logger.info(
+                    f"QdrantService ensured payload index on document_id "
+                    f"for collection={collection_name}"
+                )
+            except Exception:
+                pass
+            
         except Exception as e:
             logger.error(
                 f"QdrantService failed to ensure collection: {collection_name}. "

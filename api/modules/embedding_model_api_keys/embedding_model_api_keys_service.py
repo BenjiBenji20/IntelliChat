@@ -228,12 +228,13 @@ class EmbeddingModelAPIKeyService:
             
             all_chunk_configs: list[dict] | None = None
             
-            # if provider and embedding_model_name changes, reembed
+            # if provider or embedding_model_name changes, reembed
             if fields_to_update.get("embedding_model_name") or fields_to_update.get("provider"):
                 # select only necessary rows. pass as payload for worker
-                logger.info('[INFO] Model name and provider updated. REEMBED DOCUMENTS AGAIN')
+                logger.info('[INFO] Model name or provider updated. Initiating to REEMBED DOCUMENTS AGAIN...')
                 all_chunk_configs: list[dict] | None = await self.chunk_config_repo.get_all_configs_by_chatbot_id(embedding_model_key.chatbot_id)
-                logger.info(f'[INFO]REEMBEDDING WILL{' NOT ' if not all_chunk_configs else ' '}HAPPEN')
+                will_or_not = " NOT " if not all_chunk_configs else " "
+                logger.info(f"[INFO] REEMBEDDING WILL{will_or_not}HAPPEN")
             
             return ResponseEmbbedingModelSchema(
                 id=embedding_model_key.id,
