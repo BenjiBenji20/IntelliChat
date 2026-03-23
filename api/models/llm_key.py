@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, ForeignKey, Numeric, String, Index, UniqueConstraint
+from sqlalchemy import CheckConstraint, Column, ForeignKey, Numeric, String, Index, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID, TIMESTAMP
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
@@ -12,7 +12,7 @@ class LlmKey(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("profiles.id", ondelete="CASCADE"), nullable=False)
     chatbot_id = Column(UUID(as_uuid=True), ForeignKey("chatbots.id", ondelete="CASCADE"), nullable=False)
-    provider = Column(String(255), nullable=False, default="Groq")
+    provider = Column(String(255), nullable=False)
     api_key_encrypted = Column(String, nullable=False)
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
@@ -22,7 +22,13 @@ class LlmKey(Base):
     __table_args__ = (
         Index("idx_llm_keys_user_id", "user_id"),
         Index("idx_llm_keys_chatbot_id", "chatbot_id"),
-        # UniqueConstraint("chatbot_id", name="unique_chatbot_llm")
+        CheckConstraint(
+            "provider IN ("
+                "'groq', 'openai', 'anthropic', 'google', 'xai'"
+            ")",
+            name="llm_keys_provider_check"
+        ),
+
     )
 
     # relationships

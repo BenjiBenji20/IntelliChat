@@ -36,5 +36,5 @@ class Document(Base):
     chatbot = relationship("Chatbot", back_populates="documents", uselist=False)
     profile = relationship("Profile", back_populates="documents", uselist=False)
     embeddings_metadata = relationship("EmbeddingMetadata", back_populates="document", cascade="all, delete")
-    chunking_configurations = relationship("ChunkingConfiguration", back_populates="document")
+    chunking_configurations = relationship("ChunkingConfiguration", back_populates="document", cascade="all, delete-orphan")
     

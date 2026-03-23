@@ -22,15 +22,9 @@ class EmbeddingModelKey(Base):
         Index("idx_embedding_model_keys_user_id", "user_id"),
         Index("idx_embedding_model_keys_chatbot_id", "chatbot_id"),
         CheckConstraint(
-            "provider IN ('google ai studio', 'openai', 'anthropic', 'azure openai')",
+            "provider IN ('google ai studio', 'openai', 'cohere')",
             name="embedding_model_keys_provider_check"
-        ),
-        CheckConstraint(
-            "embedding_model_name IN ("
-                "'gemini-embedding-001','text-embedding-004', 'gemini-embedding-2-preview'"
-            ")",
-            name="embedding_model_keys_embedding_model_check"
-        ),
+        )
     )
 
     # relationships
