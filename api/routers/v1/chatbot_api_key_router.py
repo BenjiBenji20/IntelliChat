@@ -65,7 +65,6 @@ async def upload_embedding_model_key(
 )
 async def update_llm_api_key(
     payload: UpdateRequestLlmSchema,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_async_db),
     _: UUID = Depends(get_current_user)
 ):
@@ -74,16 +73,7 @@ async def update_llm_api_key(
     original id, chatbot_id, created_at and user_id will persist
     """
     service = ChatbotAPIKeyService(db)
-    response, all_chunk_configs = await service.update_llm_api_key(payload)
-    
-    if all_chunk_configs:
-        task_payloads = [
-            ProcessDocumentRequestSchema(**config).model_dump()
-            for config in all_chunk_configs
-        ]
-        background_tasks.add_task(_enqueue_tasks, task_payloads, "/worker/document/process")
-    
-    return response
+    return await service.update_llm_api_key(payload)
 
 
 @router.patch(
@@ -94,6 +84,7 @@ async def update_llm_api_key(
 )
 async def update_embedding_model_api_key(
     payload: UpdateRequestEmbeddingModelSchema,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_async_db),
     qdrant: AsyncQdrantClient = Depends(get_qdrant_client),
     _: UUID = Depends(get_current_user)
@@ -103,4 +94,13 @@ async def update_embedding_model_api_key(
     original id, chatbot_id, created_at and user_id will persist
     """
     service = EmbeddingModelAPIKeyService(db, qdrant)
-    return await service.update_embedding_model_api_key(payload)
+    response, all_chunk_configs = await service.update_embedding_model_api_key(payload)
+
+    if all_chunk_configs:
+        task_payloads = [
+            ProcessDocumentRequestSchema(**config).model_dump()
+            for config in all_chunk_configs
+        ]
+        background_tasks.add_task(_enqueue_tasks, task_payloads, "/worker/document/process")
+        
+    return response
