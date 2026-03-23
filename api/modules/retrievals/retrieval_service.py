@@ -21,7 +21,6 @@ from api.modules.cache.redis_service import (
 )
 from api.configs.settings import settings
 from shared.keys import decrypt_secret
-from shared.str_normalizers import str_normalizer
 from shared.vector_details import create_collection_name
 
 logger = logging.getLogger(__name__)
@@ -97,7 +96,7 @@ class RetrieveEmbeddingsService:
         Main retrieval service method
         """
         try:
-            cached_key = str_normalizer.normalize_query_cache_key(
+            cached_key = redis_service.normalize_query_cache_key(
                 prefix=f"{str(chatbot_id)}", query=payload.query
             )
             

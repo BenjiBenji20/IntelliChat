@@ -260,6 +260,15 @@ class RedisService:
     @staticmethod
     def _build_key(prefix: str, key: str) -> str:
         return f"{prefix}:{key}" if prefix else key
+    
+    
+    def normalize_query_cache_key(self, prefix: str, query: str) -> str:
+        """
+        Normalize query for consistent caching
+        Removes punctuation, converts to lowercase
+        """
+        # Remove trailing punctuation and convert to lowercase
+        return f"{prefix}_{query.lower().strip().rstrip('?!.,;:_/')}"
 
 
 redis_service = RedisService()
