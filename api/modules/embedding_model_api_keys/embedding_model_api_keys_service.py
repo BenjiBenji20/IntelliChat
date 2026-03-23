@@ -108,9 +108,11 @@ class EmbeddingModelAPIKeyService:
                 project_id=project_id,
                 user_id=embedding_model_key.user_id,
                 chatbot_id=embedding_model_key.chatbot_id,
+                
                 api_key=embedding_model_key.api_key_encrypted,
                 embedding_model_name=embedding_model_key.embedding_model_name,
                 provider=embedding_model_key.provider,
+                
                 created_at=embedding_model_key.created_at,
                 updated_at=embedding_model_key.updated_at
             )
@@ -235,11 +237,14 @@ class EmbeddingModelAPIKeyService:
             
             return ResponseEmbbedingModelSchema(
                 id=embedding_model_key.id,
+                project_id=payload.project_id,
                 user_id=embedding_model_key.user_id,
+                
                 chatbot_id=embedding_model_key.chatbot_id,
                 api_key=embedding_model_key.api_key_encrypted,
                 embedding_model_name=embedding_model_key.embedding_model_name,
                 provider=embedding_model_key.provider,
+                
                 created_at=embedding_model_key.created_at,
                 updated_at=embedding_model_key.updated_at
             ), all_chunk_configs

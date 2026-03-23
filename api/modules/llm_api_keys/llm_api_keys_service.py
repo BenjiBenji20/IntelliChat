@@ -223,6 +223,7 @@ class ChatbotAPIKeyService:
                 id=llm_key.id,
                 user_id=llm_key.user_id,
                 chatbot_id=llm_key.chatbot_id,
+                project_id=payload.project_id,
                 api_key=llm_key.api_key_encrypted,
                 llm_name=llm_key.llm_name,
                 temperature=llm_key.temperature,

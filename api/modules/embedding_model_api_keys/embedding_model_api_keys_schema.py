@@ -16,6 +16,12 @@ class CreateRequestEmbbedingModelSchema(BaseModel):
     def normalize(cls, v: str) -> str:
         return v.lower().strip()
     
+class ResponseEmbbedingModelSchema(CreateRequestEmbbedingModelSchema):
+    id: UUID
+    created_at: datetime
+    updated_at: datetime 
+    
+    
 class UpdateRequestEmbeddingModelSchema(BaseModel):
     project_id: UUID
     
@@ -34,10 +40,4 @@ class UpdateRequestEmbeddingModelSchema(BaseModel):
     @classmethod
     def normalize(cls, v: str) -> str:
         return v.lower().strip()
-    
-class ResponseEmbbedingModelSchema(CreateRequestEmbbedingModelSchema):
-    id: UUID
-    user_id: UUID
-    created_at: datetime
-    updated_at: datetime 
     

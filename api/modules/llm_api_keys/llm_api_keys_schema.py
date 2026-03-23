@@ -16,6 +16,12 @@ class CreateRequestLlmSchema(BaseModel):
     @classmethod
     def normalize(cls, v: str) -> str:
         return v.lower().strip()
+    
+class ResponseLlmSchema(CreateRequestLlmSchema):
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+
 
 class UpdateRequestLlmSchema(BaseModel):
     project_id: UUID
@@ -36,10 +42,3 @@ class UpdateRequestLlmSchema(BaseModel):
     @classmethod
     def normalize(cls, v: str) -> str:
         return v.lower().strip()
-
-class ResponseLlmSchema(CreateRequestLlmSchema):
-    id: UUID
-    user_id: UUID
-    created_at: datetime
-    updated_at: datetime
-    
