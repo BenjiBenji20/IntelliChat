@@ -16,6 +16,7 @@ from api.modules.behavior_studio.behavior_studio_repository import ChatbotBehavi
 from api.configs.settings import settings
 from shared.keys import decrypt_secret
 from api.modules.cache.redis_service import redis_service, API_KEY_CACHE_PREFIX, API_KEY_CACHE_TTL
+from api.modules.chat import query_guardrail as gr
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +46,6 @@ class IntelliChatService:
             llm_data, embedding_model_data, system_prompt = await self._get_chatbot_config_data(
                 chatbot_id, require_embedding=True
             )
-
             logger.info(f"[INFO] chatbot {chatbot_id}: all config ready. Starting chat.")
 
             try:
@@ -56,11 +56,15 @@ class IntelliChatService:
                 )
             except ValueError as e:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+            
+            # determine if query is greetings to skip semantic search
+            is_greeting = gr.query_guardrail.is_greeting(query)
 
             orchestrator = IntelliChat(
                 llm=llm,
                 llm_provider=llm_data["llm_provider"],
-                retrieval_service=RetrieveEmbeddingsService(qdrant=self.qdrant, db=self.db),
+                retrieval_service=RetrieveEmbeddingsService(qdrant=self.qdrant, db=self.db) \
+                    if not is_greeting else None
             )
 
             return await orchestrator.run(
@@ -97,6 +101,8 @@ class IntelliChatService:
         top_k: int = 5,
     ) -> IntellichatResponseSchema:
         try:
+            
+            # TODO: GUARDRAIL: SKIP CACHE and retrieval if query is in greetings list
             llm_data, embedding_model_data, system_prompt = await self._get_chatbot_config_data(
                 chatbot_id, require_embedding=False
             )
@@ -129,19 +135,21 @@ class IntelliChatService:
                 )
             except ValueError as e:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+            
+            # determine if query is greetings to skip semantic search
+            is_greeting = gr.query_guardrail.is_greeting(query)
 
             retrieval_svc = RetrieveEmbeddingsService(qdrant=self.qdrant, db=self.db)
             has_knowledge = False
-            if has_embedding:
+            if has_embedding and not is_greeting: # bypass get_collection_stats if is-greeting=True
                 stats = await retrieval_svc.get_collection_stats(chatbot_id)
                 has_knowledge = stats is not None
-
+                
             orchestrator = IntelliChat(
                 llm=llm,
                 llm_provider=llm_data["llm_provider"],
                 retrieval_service=(
-                    retrieval_svc
-                    if has_embedding and has_knowledge else None
+                    retrieval_svc if has_embedding and has_knowledge and not is_greeting else None
                 ),
             )
 
