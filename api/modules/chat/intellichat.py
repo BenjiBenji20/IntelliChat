@@ -72,11 +72,16 @@ class IntelliChat:
             except HTTPException:
                 raise
             except Exception as e:
-                logger.error(f"[IntelliChat] Retrieval failed for chatbot {chatbot_id}: {e}")
-                raise HTTPException(
-                    status_code=status.HTTP_502_BAD_GATEWAY,
-                    detail="Knowledge retrieval failed. Please try again.",
-                )
+                # 404 implies the vector collection wasn't found (no documents uploaded yet)
+                if "404" in str(e) or "Not Found" in str(e):
+                    logger.warning(f"[IntelliChat] Vector collection not found for chatbot {chatbot_id}. Proceeding with base LLM knowledge.")
+                    knowledge = []
+                else:
+                    logger.error(f"[IntelliChat] Retrieval failed for chatbot {chatbot_id}: {e}")
+                    raise HTTPException(
+                        status_code=status.HTTP_502_BAD_GATEWAY,
+                        detail="Knowledge retrieval failed. Please try again.",
+                    )
  
         # --- Stream LLM response ---
         full_content = ""

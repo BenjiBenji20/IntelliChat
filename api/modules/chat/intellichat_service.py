@@ -130,12 +130,18 @@ class IntelliChatService:
             except ValueError as e:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
+            retrieval_svc = RetrieveEmbeddingsService(qdrant=self.qdrant, db=self.db)
+            has_knowledge = False
+            if has_embedding:
+                stats = await retrieval_svc.get_collection_stats(chatbot_id)
+                has_knowledge = stats is not None
+
             orchestrator = IntelliChat(
                 llm=llm,
                 llm_provider=llm_data["llm_provider"],
                 retrieval_service=(
-                    RetrieveEmbeddingsService(qdrant=self.qdrant, db=self.db)
-                    if has_embedding else None
+                    retrieval_svc
+                    if has_embedding and has_knowledge else None
                 ),
             )
 

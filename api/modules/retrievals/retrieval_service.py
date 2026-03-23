@@ -153,7 +153,7 @@ class RetrieveEmbeddingsService:
             redis_prefix = f"{FREQ_CACHE_PREFIX}(collection_stats)"
 
             # check redis first
-            cached = await redis_service.get(key=collection_name, prefix=redis_prefix)
+            cached = await redis_service.get(key=str(chatbot_id), prefix=redis_prefix)
             if cached:
                 return CollectionStatsSchema.model_validate_json(cached)
 
