@@ -6,6 +6,7 @@ from sqlalchemy import select, case, and_
 from api.base.base_crud_repository import BaseCrudRepository
 from api.models.chatbot import Chatbot
 from api.models.embedding_model_key import EmbeddingModelKey
+from api.models.chatbot_behavior import ChatbotBehavior
 from api.models.llm_key import LlmKey
 
 
@@ -22,10 +23,11 @@ class ChatbotRepository(BaseCrudRepository[Chatbot]):
     async def get_chatbot_setup_status(self, project_id: UUID):
         try:
             stmt = (
-                select(Chatbot, LlmKey, EmbeddingModelKey)
+                select(Chatbot, LlmKey, EmbeddingModelKey, ChatbotBehavior.system_prompt)
                 .select_from(Chatbot)
                 .outerjoin(LlmKey, LlmKey.chatbot_id == Chatbot.id)
                 .outerjoin(EmbeddingModelKey, EmbeddingModelKey.chatbot_id == Chatbot.id)
+                .outerjoin(ChatbotBehavior, ChatbotBehavior.chatbot_id == Chatbot.id)
                 .where(Chatbot.project_id == project_id)
             )
 
@@ -43,13 +45,14 @@ class ChatbotRepository(BaseCrudRepository[Chatbot]):
                     "embedding_data": None
                 }
 
-            chatbot, llm, embedding = row
+            chatbot, llm, embedding, system_prompt = row
 
             return {
                 "chatbot_id": chatbot.id if chatbot else None,
                 "chatbot_completed": chatbot is not None,
                 "llm_completed": llm is not None,
                 "embedding_completed": embedding is not None,
+                "system_prompt": system_prompt if not None else None,
                 "chatbot_data": {
                     "id": chatbot.id,
                     "application_name": chatbot.application_name,
