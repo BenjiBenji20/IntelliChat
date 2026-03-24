@@ -236,7 +236,8 @@ class EmbeddingModelAPIKeyService:
                 will_or_not = " NOT " if not all_chunk_configs else " "
                 logger.info(f"[INFO] REEMBEDDING WILL{will_or_not}HAPPEN")
                 
-                # TODO: test - Delete cache for collection stats prefix={FREQ_CACHE_PREFIX}(collection_stats) if all_chunk_configs is not None
+                # Delete cache for collection stats prefix={FREQ_CACHE_PREFIX}(collection_stats) 
+                # if all_chunk_configs is not None
                 if all_chunk_configs:
                     is_deleted = await redis_service.delete(
                         key=str(embedding_model_key.chatbot_id), prefix=f"{FREQ_CACHE_PREFIX}(collection_stats)"
