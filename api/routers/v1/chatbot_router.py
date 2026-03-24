@@ -9,6 +9,7 @@ from api.db.db_session import get_async_db
 from api.dependencies.auth import get_current_user
 from api.dependencies.chatbot_secret_key import intellichat_secret
 from api.modules.chat.chat_schema import IntelliChatRequest, IntellichatResponseSchema
+from api.modules.chat.test_intellichat_service import TestIntelliChatService
 from api.modules.chatbot.chatbot_service import ChatbotService
 from api.modules.chat.intellichat_service import IntelliChatService
 from api.modules.chatbot.chatbot_schema import *
@@ -85,11 +86,12 @@ async def test_intellichat(
     """
     IntelliChat test your chatbot in Overview page    
     """
-    service = IntelliChatService(db=db, qdrant=qdrant)
+    service = TestIntelliChatService(db=db, qdrant=qdrant)
     return await service.test_chat(
         query=payload.query,
         top_k=payload.top_k,
         session_id=payload.session_id,
+        project_id=project_id,
         chatbot_id=chatbot_id,
     )
 
