@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 from uuid import UUID
 
@@ -13,14 +14,13 @@ from api.modules.retrievals.retrieval_service import RetrieveEmbeddingsService
 from api.modules.llm_api_keys.llm_key_repository import LlmKeyRepository
 from api.modules.embedding_model_api_keys.embedding_model_key_repository import EmbeddingModelKeyRepository
 from api.modules.behavior_studio.behavior_studio_repository import ChatbotBehaviorRepository
+from api.modules.chatbot.chatbot_repository import ChatbotRepository
 from api.configs.settings import settings
 from shared.keys import decrypt_key
-from api.modules.cache.redis_service import redis_service, API_KEY_CACHE_PREFIX, API_KEY_CACHE_TTL
+from api.modules.cache.redis_service import redis_service, FREQ_CACHE_PREFIX, FREQ_CACHE_TTL
 from api.modules.chat import query_guardrail as gr
 
 logger = logging.getLogger(__name__)
-
-_NONE_SENTINEL = "__none__"  # marks optional fields that are genuinely absent
 
 class IntelliChatService:
 
@@ -30,28 +30,43 @@ class IntelliChatService:
         self.llm_key_repo = LlmKeyRepository(db)
         self.embedding_model_repo = EmbeddingModelKeyRepository(db)
         self.chatbot_behavior_repo = ChatbotBehaviorRepository(db)
-        self.cache_prefix = f"{API_KEY_CACHE_PREFIX}(chatbot_config_data)"
+        self.chatbot_repo = ChatbotRepository(db)
+        self.cache_prefix = f"{FREQ_CACHE_PREFIX}(chatbot_current_state)"
 
     # -------------------------------------------------------------------------
     # chat() — full RAG, all config required
     # -------------------------------------------------------------------------
     async def chat(
         self,
+        project_id: UUID,
         chatbot_id: UUID,
         session_id: str,
         query: str,
         top_k: int = 5,
     ) -> IntellichatResponseSchema:
         try:
-            llm_data, embedding_model_data, system_prompt = await self._get_chatbot_config_data(
-                chatbot_id, require_embedding=True
+            llm_data, chatbot_data, embedding_model_data, system_prompt = await self._get_chatbot_current_state_data(
+                project_id=project_id
             )
             logger.info(f"[INFO] chatbot {chatbot_id}: all config ready. Starting chat.")
+
+            # decrypt api keys
+            raw_llm_api_key = decrypt_key(
+                encrypted_key=llm_data["llm_api_key"], 
+                encryption_key=settings.ENCRYPTION_KEY
+            )
+            llm_data.pop("llm_api_key")
+            
+            raw_embedding_api_key = decrypt_key(
+                encrypted_key=embedding_model_data.get("embedding_api_key"), 
+                encryption_key=settings.ENCRYPTION_KEY
+            )
+            embedding_model_data.pop("embedding_api_key")
 
             try:
                 llm = LLMFactory.create_llm(
                     model_name=llm_data["llm_name"],
-                    api_key=llm_data["llm_api_key"],
+                    api_key=raw_llm_api_key,
                     provider=llm_data["llm_provider"],
                 )
             except ValueError as e:
@@ -66,16 +81,16 @@ class IntelliChatService:
                 retrieval_service=RetrieveEmbeddingsService(qdrant=self.qdrant, db=self.db) \
                     if not is_greeting else None
             )
-
+            
             return await orchestrator.run(
                 chatbot_id=chatbot_id,
                 session_id=session_id,
                 query=query,
                 system_prompt=system_prompt,
-                temperature=float(llm_data["temperature"]),
-                embedding_provider=embedding_model_data["embedding_provider"],
-                embedding_api_key=embedding_model_data["embedding_api_key"],
-                embedding_model_name=embedding_model_data["embedding_model_name"],
+                temperature=float(llm_data.get("temperature", 0.70)),
+                embedding_provider=embedding_model_data.get("embedding_provider"),
+                embedding_api_key=raw_embedding_api_key,
+                embedding_model_name=embedding_model_data.get("embedding_model_name"),
                 top_k=top_k,
             )
 
@@ -91,13 +106,11 @@ class IntelliChatService:
 
 
     # -------------------------------------------------------------------------
-    # Cache orchestration
+    # Cache orchestration - All response fields are required
     # -------------------------------------------------------------------------
-    async def _get_chatbot_config_data(
-        self,
-        chatbot_id: UUID,
-        require_embedding: bool,
-    ) -> tuple[dict, dict | None, str | None]:
+    async def _get_chatbot_current_state_data(
+        self, project_id: UUID,
+    ) -> tuple[dict, dict, dict, str]:
         """
         Single entry point for all chatbot config reads.
 
@@ -107,215 +120,97 @@ class IntelliChatService:
             3. Fire-and-forget write to Redis Hash
             4. Return fresh data
 
-        What is cached (Redis Hash key: "api_key_(chatbot_config_data):{chatbot_id}"):
-            llm_api_key, llm_model_name, llm_provider
-            embedding_api_key, embedding_model_name,
-            embedding_provider, temperature
+        What is cached (Redis Hash key: "freq_data_(chatbot_current_state):{project_id}"):
+            chatbot_data:
+                id, application_name, has_memory
+            llm_data:
+                id, api_key_encrypted, llm_name, provider
+            embedding_data:
+                id, api_key_encrypted, embedding_model_name, provider
             system_prompt
         Optional fields use _NONE_SENTINEL ("__none__") so a missing value
         is distinguishable from a cache miss.
-
-        TTL: 12 hours. Invalidate with invalidate_chatbot_config_data_cache().
         """
-        cached = await redis_service.get_hash(key=str(chatbot_id), prefix=self.cache_prefix)
+        cached = await redis_service.get_hash(key=str(project_id), prefix=self.cache_prefix)
 
         if cached:
-            logger.info(f"[CACHE HIT] api_key_(chatbot_config_data) for chatbot {chatbot_id}.")
-            return self._unpack_config_cache(cached, require_embedding, chatbot_id)
+            logger.info(f"[CACHE HIT] freq_data_(chatbot_config_data) for chatbot {project_id}.")
+            return self._unpack_config_cache(cached)
 
-        logger.info(f"[CACHE MISS] api_key_(chatbot_config_data) for chatbot {chatbot_id}. Fetching from DB.")
-
-        llm_data = await self.get_llm_data(chatbot_id)
-        embedding_model_data = await self.get_embedding_model_data(
-            chatbot_id, is_regular_chat=require_embedding
-        )
-        system_prompt = await self.get_system_prompt(
-            chatbot_id, is_regular_chat=require_embedding
-        )
+        logger.info(f"[CACHE MISS] freq_data_(chatbot_config_data) for chatbot {project_id}. Fetching from DB.")
+        state = await self.chatbot_repo.get_chatbot_setup_status(project_id)
+        if state is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, 
+                detail="Project not found."
+            )
 
         # Fire-and-forget — cache write must not delay the response
         asyncio.create_task(
-            self._store_config_cache(chatbot_id, llm_data, embedding_model_data, system_prompt)
+            redis_service.set_nested_dict_hash(
+                key=str(project_id), prefix=self.cache_prefix, 
+                data=state, ttl=FREQ_CACHE_TTL
+            )
         )
 
-        return llm_data, embedding_model_data, system_prompt
-
-
-    async def _store_config_cache(
-        self,
-        chatbot_id: UUID,
-        llm_data: dict,
-        embedding_model_data: dict | None,
-        system_prompt: str | None,
-    ) -> None:
-        """
-        Packs all config into one Redis Hash and stores it.
-
-        Stored fields:
-            llm_api_key           — decrypted LLM key
-            llm_model_name        — e.g. "llama-3.3-70b-versatile"
-            llm_provider          — e.g. "Groq"
-            embedding_api_key     — decrypted embedding key  | "__none__" if absent
-            embedding_model_name  — e.g. "text-embedding-004"| "__none__" if absent
-            embedding_provider    — e.g. "google ai studio"  | "__none__" if absent
-            temperature           — float as string, default "0.70" if absent
-            system_prompt         — raw prompt string        | "__none__" if absent
-        """
-        payload: dict[str, str] = {
-            "llm_api_key":           llm_data["llm_api_key"],
-            "llm_name":        llm_data["llm_name"],
-            "llm_provider":          llm_data["llm_provider"],
-            "temperature":           str(llm_data["temperature"])                 if llm_data else "0.70",
-            "embedding_api_key":     embedding_model_data["embedding_api_key"]    if embedding_model_data else _NONE_SENTINEL,
-            "embedding_model_name":  embedding_model_data["embedding_model_name"] if embedding_model_data else _NONE_SENTINEL,
-            "embedding_provider":embedding_model_data["embedding_provider"]       if embedding_model_data else _NONE_SENTINEL,
-            "system_prompt":         system_prompt                                if system_prompt        else _NONE_SENTINEL,
-        }
-
-        success = await redis_service.set_hash(
-            key=str(chatbot_id),
-            data=payload,
-            prefix=self.cache_prefix,
-            ttl=API_KEY_CACHE_TTL,
-        )
-
-        if success:
-            logger.info(f"[CACHE SET] api_key_(chatbot_config_data) stored for chatbot {chatbot_id}.")
-        else:
-            logger.warning(f"[CACHE SET FAILED] api_key_(chatbot_config_data) for chatbot {chatbot_id}.")
+        return cached.get("llm_data"), cached.get("chatbot_data"), cached.get("embedding_data"), cached.get("system_prompt")
 
 
     def _unpack_config_cache(
-        self,
-        cached: dict,
-        require_embedding: bool,
-        chatbot_id: UUID,
-    ) -> tuple[dict, dict | None, str | None]:
+        self, cached: dict,
+    ) -> tuple[dict, dict, dict, str]:
         """
         Rebuilds the same dict shapes the DB helpers return,
         so callers are agnostic about whether data came from cache or DB.
         """
-        llm_data = {
-            "llm_api_key": cached["llm_api_key"],
-            "llm_name": cached["llm_name"],
-            "llm_provider": cached["llm_provider"],
-            "temperature": float(cached["temperature"])
-        }
+        chatbot_raw = cached.get("chatbot_data")
+        llm_raw = cached.get("llm_data")
+        embedding_raw = cached.get("embedding_data")
+        system_prompt = cached.get("system_prompt")
 
-        embedding_absent = cached.get("embedding_api_key") == _NONE_SENTINEL
-
-        if embedding_absent and require_embedding:
-            # Config was cached when embedding wasn't set up yet.
-            # Raise the same 404 the DB helper would have raised.
-            logger.error(f"[ERROR] Cached config missing embedding data for chatbot {chatbot_id}.")
+        if not chatbot_raw:
+            logger.error("[ERROR] Error chat: Chatbot identity not set yet.")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="No Embedding Model API key. Configure your chatbot first.",
+                detail="Error chat: Chatbot identity not set yet."
+            )
+            
+        if not llm_raw:
+            logger.error("[ERROR] Error chat: LLM not set yet.")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Error chat: LLM not set yet."
+            )
+            
+        if not embedding_raw:
+            logger.error("[ERROR] Error chat: Embedding model not set yet.")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Error chat: Embedding model not set yet."
+            )
+            
+        if not system_prompt:
+            logger.error("[ERROR] Error chat: System prompt not set yet.")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Error chat: System prompt not set yet."
             )
 
-        embedding_model_data: dict | None = None
-        if not embedding_absent:
-            embedding_model_data = {
-                "embedding_api_key": cached["embedding_api_key"],
-                "embedding_model_name": cached["embedding_model_name"],
-                "embedding_provider": cached["embedding_provider"]
-            }
+        chatbot_data = json.loads(chatbot_raw)
+        llm_data_parsed = json.loads(llm_raw)
+        embedding_parsed = json.loads(embedding_raw)
 
-        system_prompt_raw = cached.get("system_prompt")
-        system_prompt = None if system_prompt_raw == _NONE_SENTINEL else system_prompt_raw
-
-        return llm_data, embedding_model_data, system_prompt
-
-
-    # -------------------------------------------------------------------------
-    # DB helpers
-    # -------------------------------------------------------------------------
-    async def get_llm_data(self, chatbot_id: UUID) -> dict:
-        try:
-            llm_details = await self.llm_key_repo.get_llm_details(chatbot_id)
-
-            if not llm_details:
-                logger.error(f"[ERROR] No LLM key found for chatbot {chatbot_id}.")
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="No LLM API key. Configure your chatbot first.",
-                )
-
-            llm_api_key = decrypt_key(
-                encrypted_key=llm_details["api_key_encrypted"],
-                encryption_key=settings.ENCRYPTION_KEY,
-            )
-            return {
-                "llm_api_key": llm_api_key,
-                "llm_name": llm_details["llm_name"],
-                "llm_provider": llm_details["llm_provider"],
-                "temperature": float(llm_details["temperature"]),
-                
-            }
-
-        except HTTPException:
-            raise
-        except Exception:
-            logger.error(f"[ERROR] Failed to fetch LLM key for chatbot {chatbot_id}.")
-            raise
-
-
-    async def get_embedding_model_data(
-        self, chatbot_id: UUID, is_regular_chat: bool = False
-    ) -> dict | None:
-        try:
-            details = await self.embedding_model_repo.get_embedding_model_details(chatbot_id)
-
-            if not details and is_regular_chat:
-                logger.error(f"[ERROR] No embedding model key found for chatbot {chatbot_id}.")
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="No Embedding Model API key. Configure your chatbot first.",
-                )
-
-            if not details:
-                logger.warning(f"[WARN] No embedding model key for chatbot {chatbot_id}. Skipping retrieval.")
-                return None
-
-            embedding_api_key = decrypt_key(
-                encrypted_key=details["api_key_encrypted"],
-                encryption_key=settings.ENCRYPTION_KEY,
-            )
-            return {
-                "embedding_api_key": embedding_api_key,
-                "embedding_model_name": details["embedding_model_name"],
-                "embedding_provider": details["embedding_provider"],
-            }
-
-        except HTTPException:
-            raise
-        except Exception:
-            logger.error(f"[ERROR] Failed to fetch embedding model key for chatbot {chatbot_id}.")
-            raise
-
-
-    async def get_system_prompt(
-        self, chatbot_id: UUID, is_regular_chat: bool = False
-    ) -> str | None:
-        try:
-            system_prompt = await self.chatbot_behavior_repo.get_system_prompt(chatbot_id)
-
-            if not system_prompt and is_regular_chat:
-                logger.error(f"[ERROR] No system prompt found for chatbot {chatbot_id}.")
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="System prompt not found. Configure your chatbot first.",
-                )
-
-            if not system_prompt:
-                logger.warning(f"[WARN] No system prompt for chatbot {chatbot_id}. Proceeding without it.")
-                return None
-
-            return system_prompt
-
-        except HTTPException:
-            raise
-        except Exception:
-            logger.error(f"[ERROR] Failed to fetch system prompt for chatbot {chatbot_id}.")
-            raise
+        llm_data = {
+            "llm_api_key": llm_data_parsed["api_key_encrypted"],
+            "llm_name": llm_data_parsed["llm_name"],
+            "llm_provider": llm_data_parsed["provider"],
+            "temperature": float(llm_data_parsed["temperature"])
+        }
         
+        embedding_model_data = {
+            "embedding_api_key": embedding_parsed["api_key_encrypted"],
+            "embedding_model_name": embedding_parsed["embedding_model_name"],
+            "embedding_provider": embedding_parsed["provider"]
+        }
+
+        return llm_data, chatbot_data, embedding_model_data, system_prompt

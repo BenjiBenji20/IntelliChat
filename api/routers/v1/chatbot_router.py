@@ -118,5 +118,6 @@ async def intellichat(
         query=payload.query,
         top_k=payload.top_k,
         session_id=payload.session_id,
+        project_id=project_id,
         chatbot_id=chatbot_id,
     )
