@@ -6,7 +6,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from qdrant_client import AsyncQdrantClient
 
-from api.modules.chat.intellichat import IntelliChat
+from api.modules.chat.llm.intellichat import IntelliChat
 from api.modules.chat.llm.llm_factory import LLMFactory
 from api.modules.chat.chat_schema import IntellichatResponseSchema
 from api.modules.retrievals.retrieval_service import RetrieveEmbeddingsService
@@ -14,7 +14,7 @@ from api.modules.llm_api_keys.llm_key_repository import LlmKeyRepository
 from api.modules.embedding_model_api_keys.embedding_model_key_repository import EmbeddingModelKeyRepository
 from api.modules.behavior_studio.behavior_studio_repository import ChatbotBehaviorRepository
 from api.configs.settings import settings
-from shared.keys import decrypt_secret
+from shared.keys import decrypt_key
 from api.modules.cache.redis_service import redis_service, API_KEY_CACHE_PREFIX, API_KEY_CACHE_TTL
 from api.modules.chat import query_guardrail as gr
 
@@ -84,92 +84,6 @@ class IntelliChatService:
             raise
         except Exception as e:
             logger.error(f"[ERROR] Unexpected error in chat() for chatbot {chatbot_id}. Info: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="An unexpected error occurred. Please try again.",
-            )
-
-
-    # -------------------------------------------------------------------------
-    # test_chat() — LLM required, retriever optional
-    # -------------------------------------------------------------------------
-    async def test_chat(
-        self,
-        chatbot_id: UUID,
-        session_id: str,
-        query: str,
-        top_k: int = 5,
-    ) -> IntellichatResponseSchema:
-        try:
-            
-            # TODO: GUARDRAIL: SKIP CACHE and retrieval if query is in greetings list
-            llm_data, embedding_model_data, system_prompt = await self._get_chatbot_config_data(
-                chatbot_id, require_embedding=False
-            )
-
-            # Guard: partial embedding config is ambiguous, reject it
-            has_embedding = embedding_model_data is not None
-            if has_embedding and not all([
-                embedding_model_data.get("embedding_api_key"),
-                embedding_model_data.get("embedding_model_name"),
-                embedding_model_data.get("embedding_provider"),
-            ]):
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                    detail=(
-                        "Incomplete embedding configuration. "
-                        "Ensure embedding API key, model name, and provider are all set."
-                    ),
-                )
-
-            logger.info(
-                f"[INFO] chatbot {chatbot_id}: config ready. "
-                f"Retrieval {'enabled' if has_embedding else 'disabled'}. Starting test chat."
-            )
-
-            try:
-                llm = LLMFactory.create_llm(
-                    model_name=llm_data["llm_name"],
-                    api_key=llm_data["llm_api_key"],
-                    provider=llm_data["llm_provider"],
-                )
-            except ValueError as e:
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-            
-            # determine if query is greetings to skip semantic search
-            is_greeting = gr.query_guardrail.is_greeting(query)
-
-            retrieval_svc = RetrieveEmbeddingsService(qdrant=self.qdrant, db=self.db)
-            has_knowledge = False
-            if has_embedding and not is_greeting: # bypass get_collection_stats if is-greeting=True
-                stats = await retrieval_svc.get_collection_stats(chatbot_id)
-                has_knowledge = stats is not None
-                
-            orchestrator = IntelliChat(
-                llm=llm,
-                llm_provider=llm_data["llm_provider"],
-                retrieval_service=(
-                    retrieval_svc if has_embedding and has_knowledge and not is_greeting else None
-                ),
-            )
-
-            return await orchestrator.run(
-                chatbot_id=chatbot_id,
-                session_id=session_id,
-                query=query,
-                system_prompt=system_prompt,
-                temperature=float(llm_data.get("temperature", 0.70)) if llm_data else 0.70,
-                embedding_provider=embedding_model_data.get("embedding_provider") if embedding_model_data else None,
-                embedding_api_key=embedding_model_data.get("embedding_api_key") if embedding_model_data else None,
-                embedding_model_name=embedding_model_data.get("embedding_model_name") if embedding_model_data else None,
-                top_k=top_k,
-            )
-
-        except HTTPException:
-            logger.error(f"[ERROR] HTTPException in test_chat() for chatbot {chatbot_id}.")
-            raise
-        except Exception as e:
-            logger.error(f"[ERROR] Unexpected error in test_chat() for chatbot {chatbot_id}. Info: {e}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="An unexpected error occurred. Please try again.",
@@ -327,7 +241,7 @@ class IntelliChatService:
                     detail="No LLM API key. Configure your chatbot first.",
                 )
 
-            llm_api_key = decrypt_secret(
+            llm_api_key = decrypt_key(
                 encrypted_key=llm_details["api_key_encrypted"],
                 encryption_key=settings.ENCRYPTION_KEY,
             )
@@ -363,7 +277,7 @@ class IntelliChatService:
                 logger.warning(f"[WARN] No embedding model key for chatbot {chatbot_id}. Skipping retrieval.")
                 return None
 
-            embedding_api_key = decrypt_secret(
+            embedding_api_key = decrypt_key(
                 encrypted_key=details["api_key_encrypted"],
                 encryption_key=settings.ENCRYPTION_KEY,
             )
