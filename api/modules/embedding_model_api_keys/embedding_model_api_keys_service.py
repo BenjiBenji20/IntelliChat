@@ -99,7 +99,7 @@ class EmbeddingModelAPIKeyService:
                 )
 
             # invalidate chatbot current state cache
-            await redis_service.invalidate_chatbot_config_data_cache(
+            await redis_service.delete(
                 key=str(project_id), prefix=f"{FREQ_CACHE_PREFIX}(chatbot_current_state)"
             )
         
@@ -221,8 +221,8 @@ class EmbeddingModelAPIKeyService:
                 )
 
             # Invalidate redis cache
-            await redis_service.invalidate_chatbot_config_data_cache(
-                key=embedding_model_key.chatbot_id,
+            await redis_service.delete(
+                key=str(embedding_model_key.chatbot_id),
                 prefix=self.cached_prefix
             )
             

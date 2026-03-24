@@ -89,7 +89,7 @@ class ChatbotAPIKeyService:
                 )
                 
             # invalidate chatbot current state cache
-            await redis_service.invalidate_chatbot_config_data_cache(
+            await redis_service.delete(
                 key=str(project_id), prefix=f"{FREQ_CACHE_PREFIX}(chatbot_current_state)"
             )
         
@@ -214,8 +214,8 @@ class ChatbotAPIKeyService:
                 )
 
             # Invalidate redis cache
-            await redis_service.invalidate_chatbot_config_data_cache(
-                key=llm_key.chatbot_id,
+            await redis_service.delete(
+                key=str(llm_key.chatbot_id),
                 prefix=self.cached_prefix
             )
 

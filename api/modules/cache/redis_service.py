@@ -168,9 +168,10 @@ class RedisService:
         full_key = self._build_key(prefix,  key)
         try:
             await self._client.delete(full_key)
+            logger.info(f"[CACHE INVALIDATED] {prefix} for chatbot {key}.")
             return True
         except Exception as e:
-            logger.warning(f"Redis DELETE failed for key '{full_key}': {e}")
+            logger.warning(f"[CACHE INVALIDATE FAILED] {prefix} for chatbot {key}.")
             return False
     
     async def delete_many(self, keys: list[str], prefix: str = "") -> bool:
@@ -185,22 +186,7 @@ class RedisService:
         except Exception as e:
             logger.warning(f"Redis pipeline DELETE failed: {e}")
             return False
-        
-    async def invalidate_chatbot_config_data_cache(self, key: UUID, prefix: str) -> None:
-        """
-        Call this from any service that updates:
-            - LLM API keys
-            - Embedding model API keys
-            - Chatbot behavior / system prompt
 
-        The next chat() or test_chat() request will re-fetch from DB and
-        repopulate the cache automatically.
-        """
-        deleted = await self.delete(key=str(key), prefix=prefix)
-        if deleted:
-            logger.info(f"[CACHE INVALIDATED] {prefix} for chatbot {key}.")
-        else:
-            logger.warning(f"[CACHE INVALIDATE FAILED] {prefix} for chatbot {key}.")
 
     # -------------------------
     # SUPPORTING METHODS

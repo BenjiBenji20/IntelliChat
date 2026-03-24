@@ -94,7 +94,7 @@ class ChatbotService:
                 )
                 
             # invalidate chatbot current state cache
-            await redis_service.invalidate_chatbot_config_data_cache(
+            await redis_service.delete(
                 key=str(payload_dict["project_id"]), prefix=self.cache_prefix
             )
             
@@ -148,8 +148,8 @@ class ChatbotService:
                 
             # delete cached chatbot current state data
             # does not invalidate cached api_key_(chatbot_config_data) since its just holding api keys
-            await redis_service.invalidate_chatbot_config_data_cache(
-                key=project_id, prefix=self.cache_prefix
+            await redis_service.delete(
+                key=str(project_id), prefix=self.cache_prefix
             )
             
             return ResponseChatbotSchema(
