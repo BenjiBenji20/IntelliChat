@@ -20,7 +20,7 @@ from api.modules.cache.redis_service import (
     FREQ_CACHE_TTL, EMBEDDING_CACHE_PREFIX
 )
 from api.configs.settings import settings
-from shared.keys import decrypt_secret
+from shared.keys import decrypt_key
 from shared.vector_details import create_collection_name
 
 logger = logging.getLogger(__name__)
@@ -45,7 +45,7 @@ class RetrieveEmbeddingsService:
                 if not model_details:
                     raise HTTPException(status_code=404, detail="Chatbot not found.")
 
-            api_key = decrypt_secret(
+            api_key = decrypt_key(
                 encrypted_key=model_details["api_key_encrypted"],
                 encryption_key=settings.ENCRYPTION_KEY
             )

@@ -5,7 +5,7 @@ from cryptography.fernet import Fernet, InvalidToken
 from fastapi import HTTPException, status
 
 
-def encrypt_secret(raw_key: str, encryption_key: str) -> str:
+def encrypt_key(raw_key: str, encryption_key: str) -> str:
     """
     Encrypt a raw secret key string.
     Returns a base64url-encoded encrypted string safe for DB storage.
@@ -19,7 +19,7 @@ def encrypt_secret(raw_key: str, encryption_key: str) -> str:
     return cipher_suite.encrypt(raw_key.encode()).decode()
 
 
-def decrypt_secret(encrypted_key: str, encryption_key: str) -> str:
+def decrypt_key(encrypted_key: str, encryption_key: str) -> str:
     """
     Decrypt an encrypted secret key string.
     Raises 401 if the token is invalid or tampered with.
@@ -39,7 +39,7 @@ def decrypt_secret(encrypted_key: str, encryption_key: str) -> str:
         )
 
 
-def hash_secret(raw_key: str) -> str:
+def hash_key(raw_key: str) -> str:
     """
     One-way SHA-256 hash of a raw secret key.
     For storing API keys for fast lookup/comparison.
