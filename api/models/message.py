@@ -10,7 +10,7 @@ class Message(Base):
     __tablename__ = "messages"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    conversation_id = Column(UUID(as_uuid=True), ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False)
+    # conversation_id = Column(UUID(as_uuid=True), ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False)
     user_id = Column(UUID(as_uuid=True), ForeignKey("profiles.id", ondelete="CASCADE"), nullable=False)
     role = Column(String(20), nullable=False, default="user")
     content = Column(String, nullable=False)
@@ -23,6 +23,5 @@ class Message(Base):
     )
 
     # relationships
-    conversation = relationship("Conversation", back_populates="messages", uselist=False)
     profile = relationship("Profile", back_populates="messages", uselist=False)
     

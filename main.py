@@ -22,8 +22,7 @@ from api.models.profile import Profile
 from api.models.chatbot import Chatbot
 from api.models.document import Document
 from api.models.embedding_metadata import EmbeddingMetadata
-from api.models.conversation import Conversation
-from api.models.message import Message
+from api.models.conversation_summary import ConversationSummary
 from api.models.api_key import ApiKey
 from api.models.redis_key import RedisKey
 from api.models.embedding_model_key import EmbeddingModelKey

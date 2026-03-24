@@ -28,7 +28,7 @@ class Chatbot(Base):
     profile = relationship("Profile", back_populates="chatbots", uselist=False)
     documents = relationship("Document", back_populates="chatbot", cascade="all, delete")
     embeddings_metadata = relationship("EmbeddingMetadata", back_populates="chatbot", cascade="all, delete")
-    conversations = relationship("Conversation", back_populates="chatbot", cascade="all, delete")
+    conversation_summaries = relationship("ConversationSummary", back_populates="chatbot", cascade="all, delete")
     api_keys = relationship("ApiKey", back_populates="chatbot", cascade="all, delete")
     redis_keys = relationship("RedisKey", back_populates="chatbot", cascade="all, delete")
     embedding_model_keys = relationship("EmbeddingModelKey", back_populates="chatbot", cascade="all, delete")
