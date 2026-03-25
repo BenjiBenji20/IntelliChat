@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
  
 from api.modules.chat.llm.base_llm import BaseLLM
 from api.modules.chat.chat_schema import *
-from api.modules.retrievals.retrieval_schema import RetrievalResponseSchema
+from api.modules.retrievals.retrieval_schema import RetrievalResponseSchema, RetrievalRequestSchema
 from api.modules.retrievals.retrieval_service import RetrieveEmbeddingsService
 from api.modules.chat.memory.chat_memory import ChatMemory
 from api.cache.redis_service import EMBEDDING_CACHE_PREFIX, EMBEDDING_CACHE_TTL
@@ -27,12 +27,14 @@ class IntelliChat:
         self,
         llm: BaseLLM,
         llm_provider: str,
+        has_memory: bool,
         db: AsyncSession,
         retrieval_service: RetrieveEmbeddingsService | None = None,
     ) -> None:
         self.llm = llm
         self.llm_provider = llm_provider
         self.db = db
+        self.has_memory = has_memory
         self.retrieval_service = retrieval_service
  
     async def run(
@@ -54,6 +56,15 @@ class IntelliChat:
         embedding_model_name = embedding_model_name.lower().strip()
         embedding_provider = embedding_provider.lower().strip()
  
+        # --- Start Memory Fetch Concurrently ---
+        memory = None
+        memory_task = None
+        if self.has_memory:
+            memory = ChatMemory(self.db)
+            memory_task = asyncio.create_task(
+                memory.my_memory(chatbot_id=chatbot_id, session_id=session_id)
+            )
+
         # --- Retrieve knowledge (optional) ---
         if self.retrieval_service:
             if not all([embedding_provider, embedding_api_key, embedding_model_name]):
@@ -62,7 +73,6 @@ class IntelliChat:
                     detail="Retrieval service is configured but embedding credentials are missing.",
                 )
             try:
-                from api.modules.retrievals.retrieval_schema import RetrievalRequestSchema
                 retrieval: RetrievalResponseSchema = await self.retrieval_service.retrieve_embeddings(
                     chatbot_id=chatbot_id,
                     provider=embedding_provider,
@@ -92,23 +102,24 @@ class IntelliChat:
         full_content = ""
         prompt_tokens = 0
         completion_tokens = 0
+        full_contexts = system_prompt
         
-        memory = ChatMemory(self.db)
-        whole_memory = await memory.my_memory(chatbot_id=chatbot_id, session_id=session_id)
-        turns = whole_memory.get("turns") or []
-        conversation_summary = whole_memory.get("summary") or "No summary yet."
-        
-        formatted_turns = "\n".join([f"{t.get('role', 'User').title()}: {t.get('content', '')}" for t in turns])
+        if self.has_memory and memory_task:
+            whole_memory = await memory_task
+            turns = whole_memory.get("turns") or []
+            conversation_summary = whole_memory.get("summary") or "No summary yet."
+            
+            formatted_turns = "\n".join([f"{t.get('role', 'User').title()}: {t.get('content', '')}" for t in turns])
 
-        full_contexts = f"""
-        {system_prompt}
-        
-        Recent chats:
-        {formatted_turns}
-        
-        Conversation summary:
-        {conversation_summary}
-        """
+            full_contexts = f"""
+            {system_prompt}
+            
+            Recent chats:
+            {formatted_turns}
+            
+            Conversation summary:
+            {conversation_summary}
+            """
  
         try:
             async for chunk in self.llm.chat_ai(
@@ -129,16 +140,17 @@ class IntelliChat:
                 detail="The AI model failed to respond. Please try again.",
             )
             
-        turns.append({"role": "user", "content": query})
-        turns.append({"role": "assistant", "content": full_content})
-            
-        asyncio.create_task(
-            memory.cache_turns(
-                chatbot_id=chatbot_id, session_id=session_id,
-                turns=turns, llm=self.llm, current_query=query, 
-                knowledge_list=knowledge, system_prompt=system_prompt
+        if self.has_memory: 
+            turns.append({"role": "user", "content": query})
+            turns.append({"role": "assistant", "content": full_content})
+                
+            asyncio.create_task(
+                memory.cache_turns(
+                    chatbot_id=chatbot_id, session_id=session_id,
+                    turns=turns, llm=self.llm, current_query=query, 
+                    knowledge_list=knowledge, system_prompt=system_prompt
+                )
             )
-        )
  
         # --- Build response schema ---
         now = datetime.now(timezone.utc)
