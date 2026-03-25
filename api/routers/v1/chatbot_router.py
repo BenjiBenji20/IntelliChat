@@ -90,7 +90,7 @@ async def test_intellichat(
     return await service.test_chat(
         query=payload.query,
         top_k=payload.top_k,
-        session_id=payload.session_id,
+        conversation_id=payload.conversation_id,
         project_id=project_id,
         chatbot_id=chatbot_id,
     )
@@ -117,7 +117,7 @@ async def intellichat(
     return await service.chat(
         query=payload.query,
         top_k=payload.top_k,
-        session_id=payload.session_id,
+        conversation_id=payload.conversation_id,
         project_id=project_id,
         chatbot_id=chatbot_id,
     )

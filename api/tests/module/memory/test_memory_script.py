@@ -29,14 +29,14 @@ async def run_test():
     except:
         chatbot_id = uuid4()
     
-    session_id = "test-session-12345"
+    conversation_id = "test-session-12345"
 
     # Mock DB session since we only want to test Redis/Logic quickly
     mock_db = MagicMock(spec=AsyncSession)
     chat_memory = ChatMemory(db=mock_db)
 
     print("--- [TEST] Checking initial memory ---")
-    memory_result = await chat_memory.my_memory(chatbot_id, session_id)
+    memory_result = await chat_memory.my_memory(chatbot_id, conversation_id)
     print(f"Initial Memory: {memory_result}\n")
 
     print("--- [TEST] Adding 11 turns to trigger summarization ---")
@@ -45,14 +45,14 @@ async def run_test():
         turns.append({"role": "user" if i % 2 == 0 else "assistant", "content": f"Message {i}"})
     
     dummy_llm = DummyLLM()
-    success = await chat_memory.cache_turns(chatbot_id, session_id, turns, dummy_llm)
+    success = await chat_memory.cache_turns(chatbot_id, conversation_id, turns, dummy_llm)
     print(f"Cache Turns Success: {success}")
 
     # Wait a bit for the async background task to complete summarization
     await asyncio.sleep(2)
 
     print("\n--- [TEST] Checking memory after summarization ---")
-    memory_result = await chat_memory.my_memory(chatbot_id, session_id)
+    memory_result = await chat_memory.my_memory(chatbot_id, conversation_id)
     print("Turns count:", len(memory_result.get("turns", []) or []))
     print("Turns:", memory_result.get("turns"))
     print("Summary:", memory_result.get("summary"))

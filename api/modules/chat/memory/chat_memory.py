@@ -34,7 +34,7 @@ class ChatMemory:
         self.summary_repo = ConversationSummaryRepository(db)
         
     async def my_memory(
-        self, chatbot_id: UUID, session_id: str
+        self, chatbot_id: UUID, conversation_id: str
     ) -> MemoryResult: 
         """
         Get the current turn turns and add a dict to it.
@@ -47,8 +47,8 @@ class ChatMemory:
         """
         try:
             turns_data, convo_summary = await asyncio.gather(
-                redis_service.get(key=self._cache_key_bldr(chatbot_id, session_id), prefix=self.turns_cache_prefix),
-                redis_service.get(key=self._cache_key_bldr(chatbot_id, session_id), prefix=self.summary_chats_cache_prefix)
+                redis_service.get(key=self._cache_key_bldr(chatbot_id, conversation_id), prefix=self.turns_cache_prefix),
+                redis_service.get(key=self._cache_key_bldr(chatbot_id, conversation_id), prefix=self.summary_chats_cache_prefix)
             )
             
             # parse turns
@@ -56,14 +56,14 @@ class ChatMemory:
 
             # if no summary query in db and cache it
             if not convo_summary:
-                logger.info(f"[INFO] NO cached chats summary for {session_id}. Fetching DB")
-                convo_summary = await self.summary_repo.get_summary(chatbot_id, session_id)
+                logger.info(f"[INFO] NO cached chats summary for {conversation_id}. Fetching DB")
+                convo_summary = await self.summary_repo.get_summary(chatbot_id, conversation_id)
                 
                 # store in cache
                 if convo_summary:
                     logger.info("[INFO] Caching conversation summary")
                     asyncio.create_task(
-                        self._cache_summary(chatbot_id, session_id, convo_summary)
+                        self._cache_summary(chatbot_id, conversation_id, convo_summary)
                     )
             
             return MemoryResult(
@@ -72,12 +72,12 @@ class ChatMemory:
             )
             
         except Exception as e:
-            logger.warning(f"[WARNING] Error fetching memory for session id: {session_id}. {e}")
+            logger.warning(f"[WARNING] Error fetching memory for session id: {conversation_id}. {e}")
             return MemoryResult(turns=None, summary=None)
     
     
     async def cache_turns(
-        self, chatbot_id: UUID, session_id: str, turns: list[Turn], llm: BaseLLM,
+        self, chatbot_id: UUID, conversation_id: str, turns: list[Turn], llm: BaseLLM,
         current_query: str, knowledge_list: list[str] = [], system_prompt: str | None = ""
     ) -> bool:
         """Cache turns and trigger summarization if turns hit the thresholds"""
@@ -93,7 +93,7 @@ class ChatMemory:
                 # Run summarization as a background task to not block the current flow
                 asyncio.create_task(
                     self._summarize_and_compress(
-                        chatbot_id=chatbot_id, session_id=session_id,
+                        chatbot_id=chatbot_id, conversation_id=conversation_id,
                         turns=turns, llm=llm
                     )
                 )
@@ -104,21 +104,21 @@ class ChatMemory:
             
             # Use standard set with JSON serialization for lists
             return await redis_service.set(
-                key=self._cache_key_bldr(chatbot_id, session_id),
+                key=self._cache_key_bldr(chatbot_id, conversation_id),
                 value=json.dumps(turns),
                 ttl=TURNS_MEMORY_CACHE_TTL,
                 nx=False,
                 prefix=self.turns_cache_prefix
             )
         except Exception as e:
-            logger.error(f"[ERROR] Error caching turn chats for session: {session_id}. {e}")
+            logger.error(f"[ERROR] Error caching turn chats for session: {conversation_id}. {e}")
             return False
     
 
     async def _summarize_and_compress(
         self,
         chatbot_id: UUID,
-        session_id: str,
+        conversation_id: str,
         turns: list[Turn],
         llm: BaseLLM,
     ) -> None:
@@ -138,7 +138,7 @@ class ChatMemory:
         )
         
         # merge with existing summary if one exists
-        existing_summary = await self.summary_repo.get_summary(chatbot_id, session_id)
+        existing_summary = await self.summary_repo.get_summary(chatbot_id, conversation_id)
         if not existing_summary:
             existing_summary = "No summarized conversation yet."
             
@@ -225,7 +225,7 @@ New Conversation:
 
             # persist to Database
             await self.summary_repo.save_summary(
-                session_id=session_id,
+                conversation_id=conversation_id,
                 chatbot_id=chatbot_id,
                 summary=new_summary,
                 token_count=token_count
@@ -233,53 +233,53 @@ New Conversation:
 
             # update summary cache
             await self._cache_summary(
-                chatbot_id=chatbot_id, session_id=session_id,
+                chatbot_id=chatbot_id, conversation_id=conversation_id,
                 summary=new_summary
             )
 
             logger.info(
                 f"[Memory] Summarized {len(oldest_half)} turns "
-                f"for session={session_id}."
+                f"for session={conversation_id}."
             )
 
         except Exception as e:
             logger.error(
                 f"[MemoryError] summarization failed "
-                f"session={session_id}: {e}"
+                f"session={conversation_id}: {e}"
             )
 
     
     # ==================================================================
     # CACHING HELPER METHODS
     # ==================================================================
-    async def _cache_summary(self, chatbot_id: UUID, session_id: str, summary: str) -> bool:
+    async def _cache_summary(self, chatbot_id: UUID, conversation_id: str, summary: str) -> bool:
         try:
             return await redis_service.set(
-                key=self._cache_key_bldr(chatbot_id, session_id), prefix=self.summary_chats_cache_prefix,
+                key=self._cache_key_bldr(chatbot_id, conversation_id), prefix=self.summary_chats_cache_prefix,
                 ttl=SUMMARY_CHAT_MEMORY_CACHE_TTL, nx=False, value=summary
             )
         except Exception as e:
-            logger.error(f"[ERROR] Error caching summary for session: {session_id}. {e}")
+            logger.error(f"[ERROR] Error caching summary for session: {conversation_id}. {e}")
             return False
 
-    async def _delete_cached_turns(self, chatbot_id: UUID, session_id: str) -> bool:
+    async def _delete_cached_turns(self, chatbot_id: UUID, conversation_id: str) -> bool:
         try:
             return await redis_service.delete(
-                key=self._cache_key_bldr(chatbot_id, session_id),
+                key=self._cache_key_bldr(chatbot_id, conversation_id),
                 prefix=self.turns_cache_prefix
             )
         except Exception as e:
-            logger.error(f"[ERROR] Error deleting turn chats for session: {session_id}. {e}")
+            logger.error(f"[ERROR] Error deleting turn chats for session: {conversation_id}. {e}")
             return False
         
-    async def _delete_cached_summary(self, chatbot_id: UUID, session_id: str) -> bool:
+    async def _delete_cached_summary(self, chatbot_id: UUID, conversation_id: str) -> bool:
         try:
             return await redis_service.delete(
-                key=self._cache_key_bldr(chatbot_id, session_id),
+                key=self._cache_key_bldr(chatbot_id, conversation_id),
                 prefix=self.summary_chats_cache_prefix
             )
         except Exception as e:
-            logger.error(f"[ERROR] Error deleting summary chats for session: {session_id}. {e}")
+            logger.error(f"[ERROR] Error deleting summary chats for session: {conversation_id}. {e}")
             return False
     
     
@@ -329,5 +329,5 @@ New Conversation:
     def _count_tokens(self, text: str) -> int:
         return len(_encode_token.encode(text))
     
-    def _cache_key_bldr(self, chatbot_id: UUID, session_id: str) -> str:
-        return f"{str(chatbot_id)}_{session_id}"
+    def _cache_key_bldr(self, chatbot_id: UUID, conversation_id: str) -> str:
+        return f"{str(chatbot_id)}_{conversation_id}"

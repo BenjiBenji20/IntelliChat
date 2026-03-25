@@ -42,7 +42,7 @@ class TestIntelliChatService:
         self,
         project_id: UUID,
         chatbot_id: UUID,
-        session_id: str,
+        conversation_id: str,
         query: str,
         top_k: int = 5,
     ) -> IntellichatResponseSchema:
@@ -111,7 +111,7 @@ class TestIntelliChatService:
 
             return await orchestrator.run(
                 chatbot_id=chatbot_id,
-                session_id=session_id,
+                conversation_id=conversation_id,
                 query=query,
                 system_prompt=system_prompt,
                 temperature=float(llm_data.get("temperature", 0.70)) if llm_data else 0.70,

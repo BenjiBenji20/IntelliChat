@@ -11,7 +11,7 @@ class ConversationSummary(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     chatbot_id = Column(UUID(as_uuid=True), ForeignKey("chatbots.id", ondelete="CASCADE"), nullable=False)
-    session_id = Column(String, nullable=False, index=True)
+    conversation_id = Column(String, nullable=False, index=True) # user provided
     summary = Column(String, nullable=True)
     token_count = Column(Integer, nullable=False)
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
@@ -19,14 +19,14 @@ class ConversationSummary(Base):
 
     __table_args__ = (
         Index("idx_conversation_summaries_chatbot_id", "chatbot_id"),
-        Index("idx_conversation_summaries_session_id", "session_id"),
+        Index("idx_conversation_summaries_conversation_id", "conversation_id"),
         CheckConstraint(
             "role IN ('user', 'assistant')",
             name="conversation_summaries_role_check"
         ),
         UniqueConstraint(
-            "session_id", 
-            name="uq_conversation_summaries_session_id"
+            "conversation_id", 
+            name="uq_conversation_summaries_conversation_id"
         ),
     )
 

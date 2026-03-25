@@ -17,7 +17,7 @@ class IntelliChatRequest(BaseModel):
             v = v.rstrip("?!.,;:")
         return v
     
-    session_id: str
+    conversation_id: str
     top_k: int = 5
  
  
@@ -54,7 +54,7 @@ class ModelMetadataResponse(BaseModel):
  
 class IntellichatResponseSchema(BaseModel):
     id: UUID
-    session_id: str
+    conversation_id: str
     chatbot_id: UUID
     client: UserResponse
     assistant: AssistantResponse

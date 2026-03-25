@@ -22,12 +22,12 @@ class ConversationSummaryRepository(BaseCrudRepository[ConversationSummary]):
         super().__init__(ConversationSummary, db)
 
 
-    async def get_summary(self, chatbot_id: UUID, session_id: str) -> str | None:
+    async def get_summary(self, chatbot_id: UUID, conversation_id: str) -> str | None:
         try:
             stmt = (
                 select(ConversationSummary.summary)
                 .where(and_(
-                    ConversationSummary.session_id == session_id,
+                    ConversationSummary.conversation_id == conversation_id,
                     ConversationSummary.chatbot_id == chatbot_id
                 ))
                 .order_by(ConversationSummary.created_at.desc())
@@ -45,22 +45,22 @@ class ConversationSummaryRepository(BaseCrudRepository[ConversationSummary]):
     # UPSERT QUERY
     async def save_summary(
         self,
-        session_id: str,
+        conversation_id: str,
         chatbot_id: UUID,
         summary: str,
         token_count: int,
     ) -> None:
         try:
             stmt = insert(ConversationSummary).values(
-                session_id=session_id,
+                conversation_id=conversation_id,
                 chatbot_id=chatbot_id,
                 summary=summary,
                 token_count=token_count,
             )
             
-            # update action when a conflict on 'session_id' occurs
+            # update action when a conflict on 'conversation_id' occurs
             on_update_stmt = stmt.on_conflict_do_update(
-                index_elements=["session_id"],
+                index_elements=["conversation_id"],
                 set_={
                     "summary": stmt.excluded.summary,
                     "token_count": stmt.excluded.token_count,

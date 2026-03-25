@@ -40,7 +40,7 @@ class IntelliChat:
     async def run(
         self,
         chatbot_id: UUID,
-        session_id: str,
+        conversation_id: str,
         query: str,
         system_prompt: str | None = None,
         temperature: float = 0.70,
@@ -62,7 +62,7 @@ class IntelliChat:
         if self.has_memory:
             memory = ChatMemory(self.db)
             memory_task = asyncio.create_task(
-                memory.my_memory(chatbot_id=chatbot_id, session_id=session_id)
+                memory.my_memory(chatbot_id=chatbot_id, conversation_id=conversation_id)
             )
 
         # --- Retrieve knowledge (optional) ---
@@ -149,7 +149,7 @@ class IntelliChat:
                 
             asyncio.create_task(
                 memory.cache_turns(
-                    chatbot_id=chatbot_id, session_id=session_id,
+                    chatbot_id=chatbot_id, conversation_id=conversation_id,
                     turns=turns, llm=self.llm, current_query=query, 
                     knowledge_list=knowledge, system_prompt=system_prompt
                 )
@@ -169,7 +169,7 @@ class IntelliChat:
  
         return IntellichatResponseSchema(
             id=uuid.uuid4(), 
-            session_id=session_id,
+            conversation_id=conversation_id,
             chatbot_id=chatbot_id,
             client=UserResponse(query=query, created_at=now),
             assistant=AssistantResponse(content=full_content, created_at=now),

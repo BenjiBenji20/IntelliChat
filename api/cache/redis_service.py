@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
         Embeddings:
             key={chatbot_id}_{normalized_user_query}, prefix=query_embeddings
         Chat memory:
-            key={chatbot_id_session_id}, prefix=chat_memory_(turn) or chat_memory_(summary)
+            key={chatbot_id_conversation_id}, prefix=chat_memory_(turn) or chat_memory_(summary)
         Tests:
             key={chatbot_id}_{}, prefix=test_(test info)
             
