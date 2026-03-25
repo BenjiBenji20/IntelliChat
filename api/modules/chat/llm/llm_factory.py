@@ -1,5 +1,5 @@
 from api.modules.chat.llm.chat_groq import ChatGroq
-from shared.ai_models_details import llm_provider_mapper
+from shared.ai_models_details import llm_provider_mapper, get_llm_context_window
 from api.modules.chat.llm.base_llm import BaseLLM
 
 class LLMFactory:
@@ -20,7 +20,9 @@ class LLMFactory:
             )
         
         if provider.lower().strip() == "groq":
-            return ChatGroq(api_key=api_key, model_name=model_name)
+            llm = ChatGroq(api_key=api_key, model_name=model_name)
+            llm.context_window = get_llm_context_window(model_name, provider)
+            return llm
         
         # in future:
         # if provider == "OpenAI":

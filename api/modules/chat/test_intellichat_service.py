@@ -95,6 +95,7 @@ class TestIntelliChatService:
             orchestrator = IntelliChat(
                 llm=llm,
                 llm_provider=llm_data["llm_provider"],
+                db=self.db,
                 retrieval_service=(
                     retrieval_svc if has_embedding and has_knowledge and not is_greeting else None
                 ),

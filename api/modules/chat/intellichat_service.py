@@ -78,6 +78,7 @@ class IntelliChatService:
             orchestrator = IntelliChat(
                 llm=llm,
                 llm_provider=llm_data["llm_provider"],
+                db=self.db,
                 retrieval_service=RetrieveEmbeddingsService(qdrant=self.qdrant, db=self.db) \
                     if not is_greeting else None
             )

@@ -1,14 +1,17 @@
+import asyncio
 import logging
 import uuid
 from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
  
 from api.modules.chat.llm.base_llm import BaseLLM
 from api.modules.chat.chat_schema import *
 from api.modules.retrievals.retrieval_schema import RetrievalResponseSchema
 from api.modules.retrievals.retrieval_service import RetrieveEmbeddingsService
+from api.modules.chat.memory.chat_memory import ChatMemory
 from api.cache.redis_service import EMBEDDING_CACHE_PREFIX, EMBEDDING_CACHE_TTL
  
 logger = logging.getLogger(__name__)
@@ -24,10 +27,12 @@ class IntelliChat:
         self,
         llm: BaseLLM,
         llm_provider: str,
+        db: AsyncSession,
         retrieval_service: RetrieveEmbeddingsService | None = None,
     ) -> None:
         self.llm = llm
         self.llm_provider = llm_provider
+        self.db = db
         self.retrieval_service = retrieval_service
  
     async def run(
@@ -87,6 +92,23 @@ class IntelliChat:
         full_content = ""
         prompt_tokens = 0
         completion_tokens = 0
+        
+        memory = ChatMemory(self.db)
+        whole_memory = await memory.my_memory(chatbot_id=chatbot_id, session_id=session_id)
+        turns = whole_memory.get("turns") or []
+        conversation_summary = whole_memory.get("summary") or "No summary yet."
+        
+        formatted_turns = "\n".join([f"{t.get('role', 'User').title()}: {t.get('content', '')}" for t in turns])
+
+        full_contexts = f"""
+        {system_prompt}
+        
+        Recent chats:
+        {formatted_turns}
+        
+        Conversation summary:
+        {conversation_summary}
+        """
  
         try:
             async for chunk in self.llm.chat_ai(
@@ -94,7 +116,7 @@ class IntelliChat:
                 query=query,
                 knowledge=knowledge,
                 temperature=temperature,
-                system_prompt=system_prompt,
+                system_prompt=full_contexts,
             ):
                 full_content += chunk
  
@@ -106,6 +128,17 @@ class IntelliChat:
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail="The AI model failed to respond. Please try again.",
             )
+            
+        turns.append({"role": "user", "content": query})
+        turns.append({"role": "assistant", "content": full_content})
+            
+        asyncio.create_task(
+            memory.cache_turns(
+                chatbot_id=chatbot_id, session_id=session_id,
+                turns=turns, llm=self.llm, current_query=query, 
+                knowledge_list=knowledge, system_prompt=system_prompt
+            )
+        )
  
         # --- Build response schema ---
         now = datetime.now(timezone.utc)
