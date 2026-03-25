@@ -57,52 +57,55 @@ def embedder_provider_mapper(model_name: str, provider: str) -> bool:
     return True if prov else False
 
 
+# Global map for provider context limits
+LLM_MODELS_PROVIDER_MAP = {
+    "groq": {
+        "openai/gpt-oss-120b": 131_072,          # Max: 131,072 ctx
+        "openai/gpt-oss-20b": 131_072,           # Max: 131,072 ctx
+        "llama-3.3-70b-versatile": 131_072,      # Max: 131,072 ctx
+        "llama-3.1-8b-instant": 131_072,         # Max: 131,072 ctx
+        "whisper-large-v3": 8192,
+        "whisper-large-v3-turbo": 8192
+    },
+    "openai": {
+        "gpt-4o": 128_000,                       # Max: 128,000 ctx
+        "gpt-4o-mini": 128_000,                  # Max: 128,000 ctx
+        "gpt-4.1": 1_000_000,                    # Max: 1,000,000 ctx
+        "gpt-4.1-mini": 1_000_000,               # Max: 1,000,000 ctx
+        "gpt-4.1-nano": 1_000_000,               # Max: 1,000,000 ctx
+        "o3": 200_000,                           # Max: 200,000 ctx
+        "o4-mini": 200_000,                      # Max: 200,000 ctx
+    },
+    "anthropic": {
+        "claude-opus-4-6": 200_000,              # Max: 200,000 ctx
+        "claude-sonnet-4-6": 200_000,            # Max: 200,000 ctx
+        "claude-haiku-4-5-20251001": 200_000,    # Max: 200,000 ctx
+    },
+    "google": {
+        "gemini-2.5-pro-preview-03-25": 1_000_000,
+        "gemini-2.5-flash": 1_000_000,
+        "gemini-2.0-flash": 1_000_000,
+        "gemini-3.1-pro-preview": 1_000_000,
+    },
+    "xai": {
+        "grok-2-1212": 128_000,                  # Max: 128,000 ctx
+        "grok-2-vision-1212": 128_000,           # Max: 128,000 ctx
+        "grok-beta": 128_000,                    # Max: 128,000 ctx
+    },
+}
+
 # support LLM models based on providers
 # libraries available in langchain
 def llm_provider_mapper(model_name: str, provider: str) -> bool:
-    LLM_MODELS_PROVIDER_MAP = {
-        "groq": [
-            "openai/gpt-oss-120b",          # Max: 131,072 ctx / 65,536 completion
-            "openai/gpt-oss-20b",           # Max: 131,072 ctx / 65,536 completion — fast & cheap
-            "llama-3.3-70b-versatile",      # Max: 131,072 ctx / 32,768 completion
-            "llama-3.1-8b-instant",         # Max: 131,072 ctx / 131,072 completion — very fast
-            "whisper-large-v3",
-            "whisper-large-v3-turbo"
-        ],
-        "openai": [
-            "gpt-4o",                       # Max: 128,000 ctx / 16,384 output
-            "gpt-4o-mini",                  # Max: 128,000 ctx / 16,384 output
-            "gpt-4.1",                      # Max: 1,000,000 ctx / 32,768 output
-            "gpt-4.1-mini",                 # Max: 1,000,000 ctx / 32,768 output
-            "gpt-4.1-nano",                 # Max: 1,000,000 ctx / 32,768 output — cheapest
-            "o3",                           # Max: 200,000 ctx — high reasoning
-            "o4-mini",                      # Max: 200,000 ctx — fast reasoning
-        ],
-        "anthropic": [
-            "claude-opus-4-6",              # Max: 200,000 ctx / 32,000 output — most capable
-            "claude-sonnet-4-6",            # Max: 200,000 ctx / 16,000 output — balanced
-            "claude-haiku-4-5-20251001",    # Max: 200,000 ctx / 8,192 output — fast & cheap
-        ],
-        "google": [
-            "gemini-2.5-pro-preview-03-25", # Max: 1,000,000 ctx — most capable
-            "gemini-2.5-flash",             # Max: 1,000,000 ctx — fast, cost-efficient
-            "gemini-2.0-flash",             # Max: 1,000,000 ctx — free tier available
-            "gemini-3.1-pro-preview",       # Max: 1,000,000 ctx — latest flagship
-        ],
-        "xai": [
-            "grok-2-1212",                  # Max: 128,000 ctx
-            "grok-2-vision-1212",           # Max: 128,000 ctx — multimodal
-            "grok-beta",                    # Max: 128,000 ctx
-        ],
-    }
-    
-    prov = [
-        provider for prov in LLM_MODELS_PROVIDER_MAP.keys()
-        if provider.lower().strip() == prov.lower()
-        and model_name.lower().strip() in LLM_MODELS_PROVIDER_MAP[prov]
-    ]
-    
-    return True if prov else False
+    provider_map = LLM_MODELS_PROVIDER_MAP.get(provider.lower().strip(), {})
+    return model_name.lower().strip() in provider_map
+
+
+def get_llm_context_window(model_name: str, provider: str) -> int:
+    """Returns the exact context window based on the model and provider maps, default fallback to 8192."""
+    provider_map = LLM_MODELS_PROVIDER_MAP.get(provider.lower().strip(), {})
+    return provider_map.get(model_name.lower().strip(), 8192)
+
 
 
 def llm_provider_validator(provider: str) -> bool:
