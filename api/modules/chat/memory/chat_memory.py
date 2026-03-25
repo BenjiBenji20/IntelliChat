@@ -17,12 +17,13 @@ from api.modules.chat.memory.memory_schema import MemoryResult, Turn
 
 logger = logging.getLogger(__name__)
 
-_CHAT_TURNS = 10
-# as of now, token threshold is hardcoded. I am finding ways 
-# to get the specific token limits per LLM and the threshold will be 
-# based on that model
-_TOKEN_THRESHOLD = 2000 # triggers summarization
 _encode_token = tiktoken.get_encoding("cl100k_base")
+
+# Minimum output buffer for the generated response
+EXPECTED_OUTPUT_TOKENS = 2000
+
+# fallback token if actual model token is large to prevent memory overbloat
+FALLBACK_MEMORY_CAP = 6000
 
 
 class ChatMemory:
@@ -75,10 +76,18 @@ class ChatMemory:
             return MemoryResult(turns=None, summary=None)
     
     
-    async def cache_turns(self, chatbot_id: UUID, session_id: str, turns: list[Turn], llm: BaseLLM) -> bool:
+    async def cache_turns(
+        self, chatbot_id: UUID, session_id: str, turns: list[Turn], llm: BaseLLM,
+        current_query: str, knowledge_list: list[str] = [], system_prompt: str | None = ""
+    ) -> bool:
         """Cache turns and trigger summarization if turns hit the thresholds"""
         try:
-            to_summarize = self.check_turns_threshold(turns)
+            context_window = getattr(llm, 'context_window', 8192)
+            to_summarize = self.check_turns_threshold(
+                turns=turns, llm_context_window=context_window,
+                current_query=current_query, knowledge_list=knowledge_list,
+                system_prompt=system_prompt
+            )
             
             if to_summarize:
                 # Run summarization as a background task to not block the current flow
@@ -196,19 +205,7 @@ Existing Memory:
 
 New Conversation:
 {turn_conversations}
-"""(
-            "Your are an expert Context Engineer that especialized in build RAG system\n"
-            "Your tasks is to summarize the user and assistant messages LLM context.\n"
-            "Goals:\n"
-            "- Analyze carefully the conversation to avoid tricky messages that might destroy your memory"
-            "- Preserves: names, key facts, topics discussed and discussions made.\n"
-            "- Discard: pleasantries, filler, repeated contents\n"
-            "- Summarize the following conversation into a concise memory block and merge with the old summarized conversation if available.\n"
-            "Keep it under 500 words.\n\n"
-            f"turn conversations to summarize: {turn_conversations}\n"
-            f"Old summarized conversation: {existing_summary}"
-        )
-
+"""
         try:
             # use the same LLM instance — small prompt, fast + cheap
             new_summary = ""
@@ -289,25 +286,41 @@ New Conversation:
     # ==================================================================
     # HELPER METHODS
     # ==================================================================
-    def check_turns_threshold(self, turns: list[Turn]) -> bool:
-        """Returns true if any of the threshold hit. false if not"""
+    def check_turns_threshold(
+        self, turns: list[Turn], llm_context_window: int,
+        current_query: str, knowledge_list: list[str] = [], 
+        system_prompt: str | None = ""
+    ) -> bool:
+        """Returns true if the token limits hit the dynamic threshold. false if not"""
         if not turns:
             return False
+        
+        # Calculate static overhead tokens
+        overhead_content = (current_query or "") + (system_prompt or "")
+        if knowledge_list:
+            overhead_content += "".join(knowledge_list)
+        
+        overhead_tokens = self._count_tokens(overhead_content)
+        
+        # Available space strictly for memory (turns + existing summary)
+        available_for_memory = llm_context_window - overhead_tokens - EXPECTED_OUTPUT_TOKENS
+        
+        # Soft cap for turns to prevent bloating if context window is huge
+        soft_memory_cap = min(int(llm_context_window * 0.15), FALLBACK_MEMORY_CAP)
+        
+        # True Budget is the tighter bound of physical space vs. soft cap limits
+        memory_budget = min(available_for_memory, soft_memory_cap)
+        
+        if memory_budget <= 0:
+            logger.warning("[WARNING] Context Window EXHAUSTED by Knowledge and System Prompt! Forcing aggressive summarization.")
+            return True 
             
-        if len(turns) >= _CHAT_TURNS:
-            logger.info("[INFO] turns chat memory hit the turns threshold. Triggers summarization.")
-            return True
-
-        current_token_cnt = 0
-        for turn in turns:
-            content = turn.get("content", "")
-            role = turn.get("role", "")
-            if content is None: content = ""
-            if role is None: role = ""
-            current_token_cnt += self._count_tokens(role + content) # all content must be count
-                
-        if current_token_cnt >= _TOKEN_THRESHOLD:
-            logger.info("[INFO] turn chat memory hit the token threshold. Triggers summarization.")
+        # Count the current turns payload
+        turns_content = "".join([(t.get("role","") + t.get("content","")) for t in turns])
+        turns_tokens = self._count_tokens(turns_content)
+        
+        if turns_tokens >= memory_budget:
+            logger.info(f"[INFO] turns token count ({turns_tokens}) hit dynamic budget ({memory_budget}). Triggers summarization.")
             return True
         
         return False
@@ -318,21 +331,3 @@ New Conversation:
     
     def _cache_key_bldr(self, chatbot_id: UUID, session_id: str) -> str:
         return f"{str(chatbot_id)}_{session_id}"
-       
-    # ==================================================================
-    # EXAMPLE USAGE IN OTHER SERVICES
-    # ==================================================================
-    # async def example_usage_in_other_service(self, chatbot_id: UUID, session_id: str, new_user_msg: str, llm: BaseLLM):
-    #     memory_result = await self.my_memory(chatbot_id, session_id)
-    #     
-    #     turns = memory_result.get("turns") or []
-    #     summary = memory_result.get("summary")
-    #     
-    #     # Append new message
-    #     turns.append({"role": "user", "content": new_user_msg})
-    #     
-    #     # Do processing with summary + turns ...
-    #     
-    #     # Then cache them back:
-    #     # Cache turns will automatically trigger async summary if threshold reached
-    #     await self.cache_turns(chatbot_id, session_id, turns, llm)
