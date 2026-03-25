@@ -61,10 +61,21 @@ class ChatMemory:
                 
                 # store in cache
                 if convo_summary:
+                    # Cache real summary
                     logger.info("[INFO] Caching conversation summary")
                     asyncio.create_task(
                         self._cache_summary(chatbot_id, conversation_id, convo_summary)
                     )
+                else:
+                    # Store the Sentinel Flag to prevent hammering the DB next round
+                    logger.info("[INFO] Explicitly caching negative EMPTY flag internally")
+                    asyncio.create_task(self._cache_summary(chatbot_id, conversation_id, "EMPTY"))
+                    convo_summary = None
+                    
+            # If Redis returned our exact sentinel flag, instantly skip everything
+            elif convo_summary == "EMPTY":
+                logger.info("[INFO] Successfully intercepted EMPTY sentinel. Safely skipping DB lookup.")
+                convo_summary = None
             
             return MemoryResult(
                 turns=turns if turns else None,
