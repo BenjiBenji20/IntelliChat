@@ -4,7 +4,7 @@ from qdrant_client import AsyncQdrantClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.models.embedding_model_key import EmbeddingModelKey
-from api.modules.cache.redis_service import redis_service, API_KEY_CACHE_PREFIX, FREQ_CACHE_PREFIX
+from api.cache.redis_service import redis_service, API_KEY_CACHE_PREFIX, FREQ_CACHE_PREFIX
 from api.modules.chatbot.chatbot_repository import ChatbotRepository
 from api.modules.llm_api_keys.llm_key_repository import LlmKeyRepository
 from api.modules.embedding_model_api_keys.embedding_model_key_repository import EmbeddingModelKeyRepository

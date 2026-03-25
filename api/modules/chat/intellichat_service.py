@@ -17,7 +17,7 @@ from api.modules.behavior_studio.behavior_studio_repository import ChatbotBehavi
 from api.modules.chatbot.chatbot_repository import ChatbotRepository
 from api.configs.settings import settings
 from shared.keys import decrypt_key
-from api.modules.cache.redis_service import redis_service, FREQ_CACHE_PREFIX, FREQ_CACHE_TTL
+from api.cache.redis_service import redis_service, FREQ_CACHE_PREFIX, FREQ_CACHE_TTL
 from api.modules.chat import query_guardrail as gr
 
 logger = logging.getLogger(__name__)

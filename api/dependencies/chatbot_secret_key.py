@@ -10,7 +10,7 @@ from sqlalchemy import and_, select
 from api.configs.settings import settings
 from api.db.db_session import get_async_db
 from api.models.project import Project
-from api.modules.cache.redis_service import redis_service
+from api.cache.redis_service import redis_service
 
 secret_key_scheme = APIKeyHeader(name=settings.API_KEY_HEADER_NAME)
 

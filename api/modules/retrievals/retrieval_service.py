@@ -14,7 +14,7 @@ from api.modules.retrievals.retrieval_schema import (
 )
 from api.modules.retrievals.retrievers.retriever_factory import RetrieverFactory
 from api.modules.embedding_model_api_keys.embedding_model_key_repository import EmbeddingModelKeyRepository
-from api.modules.cache.redis_service import (
+from api.cache.redis_service import (
     redis_service, TEST_CACHE_PREFIX, 
     TEST_CACHE_TTL, FREQ_CACHE_PREFIX,
     FREQ_CACHE_TTL, EMBEDDING_CACHE_PREFIX

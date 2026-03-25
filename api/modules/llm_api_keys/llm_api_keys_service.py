@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from groq import Groq
 import asyncio
 
-from api.modules.cache.redis_service import API_KEY_CACHE_PREFIX, redis_service, FREQ_CACHE_PREFIX
+from api.cache.redis_service import API_KEY_CACHE_PREFIX, redis_service, FREQ_CACHE_PREFIX
 from api.models.llm_key import LlmKey
 from api.modules.chat.llm.base_llm import *
 from api.modules.chatbot.chatbot_repository import ChatbotRepository

@@ -9,7 +9,7 @@ from api.modules.chat.llm.base_llm import BaseLLM
 from api.modules.chat.chat_schema import *
 from api.modules.retrievals.retrieval_schema import RetrievalResponseSchema
 from api.modules.retrievals.retrieval_service import RetrieveEmbeddingsService
-from api.modules.cache.redis_service import EMBEDDING_CACHE_PREFIX, EMBEDDING_CACHE_TTL
+from api.cache.redis_service import EMBEDDING_CACHE_PREFIX, EMBEDDING_CACHE_TTL
  
 logger = logging.getLogger(__name__)
  

@@ -6,7 +6,7 @@ import json
 from api.models.chatbot import Chatbot
 from api.modules.chatbot.chatbot_schema import *
 from api.modules.chatbot.chatbot_repository import ChatbotRepository
-from api.modules.cache.redis_service import redis_service, FREQ_CACHE_PREFIX, FREQ_CACHE_TTL
+from api.cache.redis_service import redis_service, FREQ_CACHE_PREFIX, FREQ_CACHE_TTL
 
 
 class ChatbotService:
