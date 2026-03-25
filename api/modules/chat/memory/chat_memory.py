@@ -133,7 +133,7 @@ class ChatMemory:
         # old half to summarize
         oldest_half = turns[:len(turns) // 2]
         turn_conversations = "\n".join(
-            f"{t['role'].upper()}: {t['content']}"
+            f"[{t.get('messaged_at', 'N/A')}] {t['role'].upper()}: {t['content']}"
             for t in oldest_half
         )
         
@@ -142,7 +142,7 @@ class ChatMemory:
         if not existing_summary:
             existing_summary = "No summarized conversation yet."
             
-        summary_prompt = summary_prompt = f"""
+        summary_prompt = f"""
 You are a Context Engineer responsible for maintaining a compact, high-quality conversation memory for an LLM system.
 
 TASK:
@@ -301,7 +301,7 @@ New Conversation:
             overhead_content += "".join(knowledge_list)
         
         overhead_tokens = self._count_tokens(overhead_content)
-        
+
         # Available space strictly for memory (turns + existing summary)
         available_for_memory = llm_context_window - overhead_tokens - EXPECTED_OUTPUT_TOKENS
         
@@ -316,7 +316,7 @@ New Conversation:
             return True 
             
         # Count the current turns payload
-        turns_content = "".join([(t.get("role","") + t.get("content","")) for t in turns])
+        turns_content = "".join([(t.get("role","") + t.get("content","") + t.get("messaged_at","")) for t in turns])
         turns_tokens = self._count_tokens(turns_content)
         
         if turns_tokens >= memory_budget:

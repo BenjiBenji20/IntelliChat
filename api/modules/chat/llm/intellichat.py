@@ -109,7 +109,7 @@ class IntelliChat:
             turns = whole_memory.get("turns") or []
             conversation_summary = whole_memory.get("summary") or "No summary yet."
             
-            formatted_turns = "\n".join([f"{t.get('role', 'User').title()}: {t.get('content', '')}" for t in turns])
+            formatted_turns = "\n".join([f"[{t.get('messaged_at', 'N/A')}] {t.get('role', 'User').title()}: {t.get('content', '')}" for t in turns])
 
             full_contexts = f"""
             {system_prompt}
@@ -140,9 +140,12 @@ class IntelliChat:
                 detail="The AI model failed to respond. Please try again.",
             )
             
+        now = datetime.now(timezone.utc)
+        current_time_str = datetime.now().strftime('%b %d, %Y %I:%M %p')
+            
         if self.has_memory: 
-            turns.append({"role": "user", "content": query})
-            turns.append({"role": "assistant", "content": full_content})
+            turns.append({"role": "user", "content": query, "messaged_at": current_time_str})
+            turns.append({"role": "assistant", "content": full_content, "messaged_at": current_time_str})
                 
             asyncio.create_task(
                 memory.cache_turns(
@@ -153,7 +156,6 @@ class IntelliChat:
             )
  
         # --- Build response schema ---
-        now = datetime.now(timezone.utc)
         sources = retrieval.results if retrieval and retrieval.results else []
         
         metadata = ModelMetadataResponse(
