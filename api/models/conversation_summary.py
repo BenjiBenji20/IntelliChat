@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import CheckConstraint, Column, ForeignKey, Integer, String, Index
+from sqlalchemy import CheckConstraint, Column, ForeignKey, Integer, String, Index, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID, TIMESTAMP
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
@@ -11,8 +11,7 @@ class ConversationSummary(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     chatbot_id = Column(UUID(as_uuid=True), ForeignKey("chatbots.id", ondelete="CASCADE"), nullable=False)
-    session_id = Column(String, nullable=False)
-    role = Column(String(9), nullable=True)
+    session_id = Column(String, nullable=False, index=True)
     summary = Column(String, nullable=True)
     token_count = Column(Integer, nullable=False)
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
@@ -20,10 +19,15 @@ class ConversationSummary(Base):
 
     __table_args__ = (
         Index("idx_conversation_summaries_chatbot_id", "chatbot_id"),
+        Index("idx_conversation_summaries_session_id", "session_id"),
         CheckConstraint(
             "role IN ('user', 'assistant')",
             name="conversation_summaries_role_check"
-        )
+        ),
+        UniqueConstraint(
+            "session_id", 
+            name="uq_conversation_summaries_session_id"
+        ),
     )
 
     # relationships

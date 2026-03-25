@@ -18,6 +18,8 @@ logger = logging.getLogger(__name__)
             key={project_id} or key={chatbot_id}, prefix=secret_key
         Embeddings:
             key={chatbot_id}_{normalized_user_query}, prefix=query_embeddings
+        Chat memory:
+            key={chatbot_id_session_id}, prefix=chat_memory_(turn) or chat_memory_(summary)
         Tests:
             key={chatbot_id}_{}, prefix=test_(test info)
             
@@ -40,6 +42,11 @@ TEST_CACHE_TTL = 600
 # EMBEDDINGDS
 EMBEDDING_CACHE_PREFIX = "query_embeddings"
 EMBEDDING_CACHE_TTL = 600 # 10mins
+
+# CHAT MEMORY
+CHAT_MEMORY_CACHE_PREFIX = "chat_memory_"
+SUMMARY_CHAT_MEMORY_CACHE_TTL = 43_200 # 12 hours
+TURNS_MEMORY_CACHE_TTL = 604_800 # 7 days
 
 
 class RedisService:
@@ -84,14 +91,15 @@ class RedisService:
         value: Any,
         prefix: str = "",
         ttl: int | None = None,
+        nx: bool = True,
     ) -> bool:
         """Set key only if it doesn't exist. Returns True if set, False if already existed."""
         full_key = self._build_key(prefix,  key)
         try:
             if ttl:
-                await self._client.set(full_key, value, ex=ttl, nx=True)
+                await self._client.set(full_key, value, ex=ttl, nx=nx)
             else:
-                await self._client.set(full_key, value, nx=True)
+                await self._client.set(full_key, value, nx=nx)
             return True
         except Exception as e:
             logger.warning(f"Redis SET failed for key '{full_key}': {e}")
@@ -102,6 +110,7 @@ class RedisService:
         items: dict[str, Any],
         prefix: str = "",
         ttl: int | None = None,
+        nx=True
     ) -> bool:
         """Set multiple key-value pairs in one round trip."""
         try:
@@ -109,9 +118,9 @@ class RedisService:
             for key, value in items.items():
                 full_key = self._build_key(prefix, key)
                 if ttl:
-                    pipeline.set(full_key, value, ex=ttl, nx=True)
+                    pipeline.set(full_key, value, ex=ttl, nx=nx)
                 else:
-                    pipeline.set(full_key, value, nx=True)
+                    pipeline.set(full_key, value, nx=nx)
             await pipeline.exec()
             return True
         except Exception as e:
