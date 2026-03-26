@@ -4,8 +4,6 @@ SUPPORTED_EMBEDDING_PROVIDERS = {
     'cohere'
 }
 
-GOOGLE_AI_PROVIDERS = {"google ai studio", "google", "gemini", "google ai"}
-
 # supported gemini embedding models and their vector sizes
 GEMINI_MODEL_VECTOR_MAP = {
     "gemini-embedding-001":           3072,
@@ -107,11 +105,5 @@ def get_llm_context_window(model_name: str, provider: str) -> int:
     return provider_map.get(model_name.lower().strip(), 8192)
 
 
-
 def llm_provider_validator(provider: str) -> bool:
-    PROVIDER_SET = {
-        "openai",
-        "groq",
-    }
-    
-    return True if provider.lower().strip() in PROVIDER_SET else False
+    return provider.lower().strip() in LLM_MODELS_PROVIDER_MAP.keys()

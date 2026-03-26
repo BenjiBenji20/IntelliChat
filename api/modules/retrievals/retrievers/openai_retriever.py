@@ -1,23 +1,26 @@
 from uuid import UUID
 import logging
 
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_openai import OpenAIEmbeddings
 
 from api.modules.retrievals.retrievers.base_retriever import *
 from api.modules.retrievals.retrieval_schema import RetrievalResponseSchema
-from google.api_core.exceptions import Unauthenticated, NotFound, ResourceExhausted, GoogleAPIError
+from openai import (
+    AuthenticationError,
+    NotFoundError,
+    RateLimitError,
+    APIError
+)
 
 logger = logging.getLogger(__name__)
 
-class GeminiRetriever(BaseRetriever):
+class OpenAIRetriever(BaseRetriever):
     """
-    GeminiRetriever only supports embedding models from Gemini model or
-    Google AI Studio provider
+    OpenAIRetriever only supports embedding models from OpenAI provider
     Models:
-        gemini-embedding-001,
-        text-embedding-005,
-        text-multilingual-embedding-002,
-        gemini-embedding-2-preview,    
+        "text-embedding-ada-002"
+        "text-embedding-3-small"
+        "text-embedding-3-large"   
     """
     
     async def retrieve_embeddings(
@@ -28,8 +31,8 @@ class GeminiRetriever(BaseRetriever):
         filters: list[RetrievalFilter] = None
     ) -> RetrievalResponseSchema | None:
         try:
-            embedder = GoogleGenerativeAIEmbeddings(
-                google_api_key=self.api_key,
+            embedder = OpenAIEmbeddings(
+                api_key=self.api_key,
                 model=self.model_name,
                 task_type="RETRIEVAL_QUERY"
             )
@@ -48,26 +51,26 @@ class GeminiRetriever(BaseRetriever):
 
         except Exception as e:
             logger.error(
-                f"GeminiRetriever failed for chatbot_id={chatbot_id}. Error: {e}"
+                f"OpenAIRetriever failed for chatbot_id={chatbot_id}. Error: {e}"
             )
             raise
     
         
     async def test_retrieve_embeddings(self) -> bool:
         try:
-            embedder = GoogleGenerativeAIEmbeddings(
+            embedder = OpenAIEmbeddings(
                 model=self.model_name,
-                google_api_key=self.api_key,
+                api_key=self.api_key,
                 task_type="RETRIEVAL_QUERY"
             )
             await embedder.aembed_query("hi")
             return True
 
-        except Unauthenticated:
+        except AuthenticationError:
             raise EmbedderAuthError()
-        except NotFound:
+        except NotFoundError:
             raise EmbedderModelNotFoundError()
-        except ResourceExhausted:
+        except RateLimitError:
             raise EmbedderRateLimitError()
-        except GoogleAPIError as e:
+        except APIError as e:
             raise EmbedderConnectionError(str(e))

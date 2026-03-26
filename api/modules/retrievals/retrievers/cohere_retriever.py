@@ -1,23 +1,27 @@
 from uuid import UUID
 import logging
 
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_cohere import CohereEmbeddings
 
 from api.modules.retrievals.retrievers.base_retriever import *
 from api.modules.retrievals.retrieval_schema import RetrievalResponseSchema
-from google.api_core.exceptions import Unauthenticated, NotFound, ResourceExhausted, GoogleAPIError
+from cohere import (
+    UnauthorizedError,
+    NotFoundError,
+    TooManyRequestsError,
+    InternalServerError
+)
 
 logger = logging.getLogger(__name__)
 
-class GeminiRetriever(BaseRetriever):
+class CohereRetriever(BaseRetriever):
     """
-    GeminiRetriever only supports embedding models from Gemini model or
-    Google AI Studio provider
+    CohereRetriever only supports embedding models from Cohere provider
     Models:
-        gemini-embedding-001,
-        text-embedding-005,
-        text-multilingual-embedding-002,
-        gemini-embedding-2-preview,    
+        "embed-v4.0",
+        "embed-english-v3.0",
+        "embed-english-light-v3.0",
+        "embed-multilingual-v3.0",   
     """
     
     async def retrieve_embeddings(
@@ -28,8 +32,8 @@ class GeminiRetriever(BaseRetriever):
         filters: list[RetrievalFilter] = None
     ) -> RetrievalResponseSchema | None:
         try:
-            embedder = GoogleGenerativeAIEmbeddings(
-                google_api_key=self.api_key,
+            embedder = CohereEmbeddings(
+                api_key=self.api_key,
                 model=self.model_name,
                 task_type="RETRIEVAL_QUERY"
             )
@@ -48,26 +52,26 @@ class GeminiRetriever(BaseRetriever):
 
         except Exception as e:
             logger.error(
-                f"GeminiRetriever failed for chatbot_id={chatbot_id}. Error: {e}"
+                f"CohereRetriever failed for chatbot_id={chatbot_id}. Error: {e}"
             )
             raise
     
         
     async def test_retrieve_embeddings(self) -> bool:
         try:
-            embedder = GoogleGenerativeAIEmbeddings(
+            embedder = CohereEmbeddings(
                 model=self.model_name,
-                google_api_key=self.api_key,
+                api_key=self.api_key,
                 task_type="RETRIEVAL_QUERY"
             )
             await embedder.aembed_query("hi")
             return True
 
-        except Unauthenticated:
+        except UnauthorizedError:
             raise EmbedderAuthError()
-        except NotFound:
+        except NotFoundError:
             raise EmbedderModelNotFoundError()
-        except ResourceExhausted:
-            raise EmbedderRateLimitError()
-        except GoogleAPIError as e:
+        except TooManyRequestsError:
+            raise InternalServerError()
+        except InternalServerError as e:
             raise EmbedderConnectionError(str(e))
