@@ -117,7 +117,7 @@ class GeminiRetriever(BaseRetriever):
                 f"Gemini Retriever failed for chatbot_id={chatbot_id}. Error: {e}"
             )
             raise
-        
+    
         
     async def test_retrieve_embeddings(self) -> bool:
         try:

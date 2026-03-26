@@ -32,7 +32,6 @@ class BaseRetriever(ABC):
         pass
     
     
-    @abstractmethod
     def determine_score_threshold(self, knowledge_list: QueryResponse) -> float:
         """Filter retrieved results list based on relevant scores"""
         if not knowledge_list.points:
