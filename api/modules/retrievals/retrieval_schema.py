@@ -14,6 +14,13 @@ class RetrievalFilter(BaseModel):
     title: str | None = None # file title in metadata
     content_type: str | None = None
     document_type: str | None = None
+    
+    # Document-type specific metadata fields
+    page_number: int | None = None
+    section: str | None = None
+    heading_level: int | None = None
+    json_path: str | None = None
+    record_id: str | None = None
 
 class RetrievalRequestSchema(BaseModel):
     query: str = Field(
@@ -21,7 +28,7 @@ class RetrievalRequestSchema(BaseModel):
         max_length=500,
         description="User's message"
     )
-    # filters: list[RetrievalFilter] = Field(default_factory=list)
+    filters: list[RetrievalFilter] = Field(default_factory=list)
     top_k: int = Field(default=5, gt=0, le=20)
     
     @field_validator('query')

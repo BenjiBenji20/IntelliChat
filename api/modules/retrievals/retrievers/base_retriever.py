@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import HTTPException
 from qdrant_client import AsyncQdrantClient
 from qdrant_client.http.models import QueryResponse
-from api.modules.retrievals.retrieval_schema import ChunkResultSchema, RetrievalResponseSchema
+from api.modules.retrievals.retrieval_schema import RetrievalFilter, RetrievalResponseSchema
 
 
 class BaseRetriever(ABC):
@@ -26,7 +26,7 @@ class BaseRetriever(ABC):
         query: str,
         chatbot_id: UUID,
         top_k: int,
-        # filters: list[RetrievalFilter] = None,
+        filters: list[RetrievalFilter] = None,
     ) -> RetrievalResponseSchema | None:
         """Requires child class to define retrieve() method and return the same pydantic schema."""
         pass
@@ -35,6 +35,20 @@ class BaseRetriever(ABC):
     @abstractmethod
     def determine_score_threshold(self, knowledge_list: QueryResponse) -> float:
         """Filter retrieved results list based on relevant scores"""
+        if not knowledge_list.points:
+            return None
+
+        scores = [hit.score for hit in knowledge_list.points]
+        best_score = max(scores)
+        
+        # Early exit — if best score is lower to the hard floor threshold, no more relevant docs
+        if best_score <= self.hard_floor_threshold:
+            return None
+
+        # keep docs within tolerance of the best score
+        score_threshold = best_score - self.score_drop_tolerance
+        
+        return score_threshold if score_threshold > self.hard_floor_threshold else None
     
     
     @abstractmethod

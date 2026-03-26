@@ -1,13 +1,12 @@
-import asyncio
 from uuid import UUID
 import logging
 
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
-from qdrant_client.http.models import QueryResponse
 
 from api.modules.retrievals.retrievers.base_retriever import *
 from api.modules.retrievals.retrieval_schema import ChunkResultSchema, RetrievalResponseSchema
 from google.api_core.exceptions import Unauthenticated, NotFound, ResourceExhausted, GoogleAPIError
+from qdrant_client.http.models import QueryResponse, Filter, FieldCondition, MatchValue
 from shared.vector_details import create_collection_name
 
 logger = logging.getLogger(__name__)
@@ -28,7 +27,7 @@ class GeminiRetriever(BaseRetriever):
         query: str,
         chatbot_id: UUID,
         top_k: int,
-        # filters: list[RetrievalFilter]
+        filters: list[RetrievalFilter] = None
     ) -> RetrievalResponseSchema | None:
         try:
             embedder = GoogleGenerativeAIEmbeddings(
@@ -45,21 +44,30 @@ class GeminiRetriever(BaseRetriever):
 
             collection_name = create_collection_name(chatbot_id)
 
-            # build Qdrant filter conditions
-            # must_conditions = [
-            #     FieldCondition(key=k, match=MatchValue(value=v))
-            #     for f in filters
-            #     for k, v in f.model_dump(exclude_none=True).items()
-            #     if str(v).strip()
-            # ]
-            # query_filter = Filter(must=must_conditions) if must_conditions else None
+            query_filter = None
+            if filters:
+                should_conditions = []
+                # If multiple filters are provided, they should act as an OR condition
+                for f in filters:
+                    must_conditions = []
+                    for k, v in f.model_dump(exclude_none=True).items():
+                        if str(v).strip():
+                            must_conditions.append(
+                                FieldCondition(key=k, match=MatchValue(value=v))
+                            )
+                    
+                    if must_conditions:
+                        should_conditions.append(Filter(must=must_conditions))
+                
+                if should_conditions:
+                    query_filter = Filter(should=should_conditions)
 
             search = await self.qdrant.query_points(
                 collection_name=collection_name,
                 query=query_vector,
                 limit=top_k,
                 using=self.model_name,
-                # query_filter=query_filter, # thinking of better filter strategy in future
+                query_filter=query_filter,
                 with_payload=True,
                 with_vectors=False
             )
@@ -109,23 +117,6 @@ class GeminiRetriever(BaseRetriever):
                 f"Gemini Retriever failed for chatbot_id={chatbot_id}. Error: {e}"
             )
             raise
-        
-        
-    def determine_score_threshold(self, knowledge_list: QueryResponse) -> float | None:
-        if not knowledge_list.points:
-            return None
-
-        scores = [hit.score for hit in knowledge_list.points]
-        best_score = max(scores)
-        
-        # Early exit — if best score is lower to the hard floor threshold, no more relevant docs
-        if best_score <= self.hard_floor_threshold:
-            return None
-
-        # keep docs within tolerance of the best score
-        score_threshold = best_score - self.score_drop_tolerance
-        
-        return score_threshold if score_threshold > self.hard_floor_threshold else None
         
         
     async def test_retrieve_embeddings(self) -> bool:

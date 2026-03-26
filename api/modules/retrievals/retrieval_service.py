@@ -119,7 +119,7 @@ class RetrieveEmbeddingsService:
             response: RetrievalResponseSchema = await retriever.retrieve_embeddings(
                 query=payload.query,
                 chatbot_id=chatbot_id,
-                # filters=payload.filters,
+                filters=payload.filters,
                 top_k=payload.top_k,
             )
             
