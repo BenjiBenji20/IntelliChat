@@ -3,6 +3,7 @@ from uuid import UUID
 import logging
 
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from qdrant_client.http.models import QueryResponse
 
 from api.modules.retrievals.retrievers.base_retriever import *
 from api.modules.retrievals.retrieval_schema import ChunkResultSchema, RetrievalResponseSchema
@@ -62,8 +63,20 @@ class GeminiRetriever(BaseRetriever):
                 with_payload=True,
                 with_vectors=False
             )
-
-            chunks: list[ChunkResultSchema] = [
+            
+            score_threshold = self.determine_score_threshold(search)
+            
+            # if no valid threshold (all docs irrelevant)
+            if score_threshold is None:
+                return RetrievalResponseSchema(
+                    query=query,
+                    top_k=top_k,
+                    total_results=0,
+                    results=[]
+                )
+            
+            # store relevant documents by score
+            relevant_docs: list[ChunkResultSchema] = [
                 ChunkResultSchema(
                     chunk_id=str(hit.id),
                     document_id=hit.payload.get("document_id", ""),
@@ -81,14 +94,14 @@ class GeminiRetriever(BaseRetriever):
                     json_path=hit.payload.get("json_path"),
                     record_id=hit.payload.get("record_id"),
                 )
-                for hit in search.points
+                for hit in search.points if hit.score >= score_threshold # score should be >= 0.50
             ]
 
             return RetrievalResponseSchema(
                 query=query,
                 top_k=top_k,
-                total_results=len(chunks),
-                results=chunks
+                total_results=len(relevant_docs),
+                results=relevant_docs
             )
 
         except Exception as e:
@@ -96,6 +109,23 @@ class GeminiRetriever(BaseRetriever):
                 f"Gemini Retriever failed for chatbot_id={chatbot_id}. Error: {e}"
             )
             raise
+        
+        
+    def determine_score_threshold(self, knowledge_list: QueryResponse) -> float | None:
+        if not knowledge_list.points:
+            return None
+
+        scores = [hit.score for hit in knowledge_list.points]
+        best_score = max(scores)
+        
+        # Early exit — if best score is lower to the hard floor threshold, no more relevant docs
+        if best_score <= self.hard_floor_threshold:
+            return None
+
+        # keep docs within tolerance of the best score
+        score_threshold = best_score - self.score_drop_tolerance
+        
+        return score_threshold if score_threshold > self.hard_floor_threshold else None
         
         
     async def test_retrieve_embeddings(self) -> bool:

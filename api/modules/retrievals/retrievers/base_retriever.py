@@ -2,8 +2,8 @@ from abc import ABC, abstractmethod
 from uuid import UUID
 from fastapi import HTTPException
 from qdrant_client import AsyncQdrantClient
-
-from api.modules.retrievals.retrieval_schema import RetrievalResponseSchema
+from qdrant_client.http.models import QueryResponse
+from api.modules.retrievals.retrieval_schema import ChunkResultSchema, RetrievalResponseSchema
 
 
 class BaseRetriever(ABC):
@@ -11,11 +11,14 @@ class BaseRetriever(ABC):
         self,
         api_key: str, # raw embedding model api_key
         model_name: str,
-        qdrant: AsyncQdrantClient, # AsyncQDrantClient
+        qdrant: AsyncQdrantClient,
     ) -> None:
         self.api_key = api_key
         self.model_name = model_name
         self.qdrant = qdrant
+        self.score_drop_tolerance = 0.10 # scores to drop against best score
+        self.hard_floor_threshold = 0.49 # guardrail, bellow this, retrieved docs are irrelevant
+        
         
     @abstractmethod
     async def retrieve_embeddings(
@@ -27,6 +30,11 @@ class BaseRetriever(ABC):
     ) -> RetrievalResponseSchema | None:
         """Requires child class to define retrieve() method and return the same pydantic schema."""
         pass
+    
+    
+    @abstractmethod
+    def determine_score_threshold(self, knowledge_list: QueryResponse) -> float:
+        """Filter retrieved results list based on relevant scores"""
     
     
     @abstractmethod
