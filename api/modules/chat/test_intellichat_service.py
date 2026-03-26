@@ -175,7 +175,36 @@ class TestIntelliChatService:
             redis_service.set_nested_dict_hash(key=str(project_id), prefix=self.cache_prefix, data=state, ttl=FREQ_CACHE_TTL)
         )
 
-        return cached.get("llm_data"), cached.get("chatbot_data"), cached.get("embedding_data"), cached.get("system_prompt")
+        return self._unpack_state_data(state)
+
+
+    def _unpack_state_data(
+        self, state: dict
+    ) -> tuple[dict, dict, dict, str]:
+        # Unpack results came from DB
+        llm = state["llm_data"]
+        embedding = state["embedding_data"]
+        chatbot = state["chatbot_data"]
+        system_prompt = state.get("system_prompt")
+
+        return (
+            {
+                "llm_api_key": llm["api_key_encrypted"],
+                "llm_name": llm["llm_name"],
+                "llm_provider": llm["provider"],
+                "temperature": float(llm["temperature"])
+            },
+            {
+                "application_name": chatbot["application_name"],
+                "has_memory": chatbot["has_memory"]
+            },
+            {
+                "embedding_api_key": embedding["api_key_encrypted"],
+                "embedding_model_name": embedding["embedding_model_name"],
+                "embedding_provider": embedding["provider"]
+            },
+            system_prompt
+        )
 
 
     def _unpack_config_cache(

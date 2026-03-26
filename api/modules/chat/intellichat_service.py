@@ -146,6 +146,14 @@ class IntelliChatService:
                 status_code=status.HTTP_404_NOT_FOUND, 
                 detail="Project not found."
             )
+            
+        # Validate all required fields exist
+        if not state.get("llm_data"):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Error chat: LLM not set yet.")
+        if not state.get("chatbot_data"):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Error chat: Chatbot identity not set yet.")
+        if not state.get("embedding_data"):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Error chat: Embedding model not set yet.")
 
         # Fire-and-forget — cache write must not delay the response
         asyncio.create_task(
@@ -154,9 +162,38 @@ class IntelliChatService:
                 data=state, ttl=FREQ_CACHE_TTL
             )
         )
+        
+        return self._unpack_state_data(state)
 
-        return cached.get("llm_data"), cached.get("chatbot_data"), cached.get("embedding_data"), cached.get("system_prompt")
+    
+    def _unpack_state_data(
+        self, state: dict
+    ) -> tuple[dict, dict, dict, str]:
+        # Unpack results came from DB
+        llm = state["llm_data"]
+        embedding = state["embedding_data"]
+        chatbot = state["chatbot_data"]
+        system_prompt = state.get("system_prompt")
 
+        return (
+            {
+                "llm_api_key": llm["api_key_encrypted"],
+                "llm_name": llm["llm_name"],
+                "llm_provider": llm["provider"],
+                "temperature": float(llm["temperature"])
+            },
+            {
+                "application_name": chatbot["application_name"],
+                "has_memory": chatbot["has_memory"]
+            },
+            {
+                "embedding_api_key": embedding["api_key_encrypted"],
+                "embedding_model_name": embedding["embedding_model_name"],
+                "embedding_provider": embedding["provider"]
+            },
+            system_prompt
+        )
+    
 
     def _unpack_config_cache(
         self, cached: dict,
