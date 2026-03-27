@@ -89,7 +89,10 @@ class TestIntelliChatService:
             retrieval_svc = RetrieveEmbeddingsService(qdrant=self.qdrant, db=self.db)
             has_knowledge = False
             if has_embedding and not is_greeting: # bypass get_collection_stats if is-greeting=True
-                stats = await retrieval_svc.get_collection_stats(chatbot_id)
+                # get in redis first
+                stats = await redis_service.get(key=str(chatbot_id), prefix=f"{FREQ_CACHE_PREFIX}(collection_stats)")
+                if not stats:
+                    stats = await retrieval_svc.get_collection_stats(chatbot_id)
                 has_knowledge = stats is not None
                 
             orchestrator = IntelliChat(

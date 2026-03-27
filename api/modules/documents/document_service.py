@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from api.cache.redis_service import FREQ_CACHE_PREFIX, redis_service
 from api.configs.settings import settings
 from api.models.document import Document
 from api.modules.documents.document_repository import DocumentRepository
@@ -98,6 +99,17 @@ class DocumentService:
                 document_id=document_id
             )
             
+            # delete current cached collection stats
+            # to update it by requesting new one
+            is_deleted = await redis_service.delete(
+                key=str(chatbot_id), prefix=f"{FREQ_CACHE_PREFIX}(collection_stats)"
+            )
+            info_message = "is DELETED." if is_deleted else "is FAILED to delete."
+            logger.info(
+                f"[INFO] CACHE: key={str(chatbot_id)} prefix={FREQ_CACHE_PREFIX}(collection_stats) "
+                f"{info_message}"
+            )
+    
             return DeleteDocumentResponseSchema(
                 file_name=document.file_name,
                 message="Document and all associated data deleted successfully.",
@@ -347,6 +359,17 @@ class DocumentService:
                 
                 for chunk_config in chunk_configs_to_create:
                     await self.chunking_config_repo.create(**chunk_config)
+                    
+                # delete current cached collection stats
+                # to update it by requesting new one
+                is_deleted = await redis_service.delete(
+                    key=str(chatbot_id), prefix=f"{FREQ_CACHE_PREFIX}(collection_stats)"
+                )
+                info_message = "is DELETED." if is_deleted else "is FAILED to delete."
+                logger.info(
+                    f"[INFO] CACHE: key={str(chatbot_id)} prefix={FREQ_CACHE_PREFIX}(collection_stats) "
+                    f"{info_message}"
+                )
                 
             return BulkConfirmResponseSchema(confirmed=confirmed_responses, failed=failed), task_payloads
 
