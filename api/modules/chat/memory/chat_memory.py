@@ -14,16 +14,11 @@ from api.cache.redis_service import (
 from api.modules.chat.llm.base_llm import BaseLLM
 from api.modules.chat.memory.conversation_summary_repository import ConversationSummaryRepository
 from api.modules.chat.memory.memory_schema import MemoryResult, Turn
+from shared.ai_models_details import EXPECTED_OUTPUT_TOKENS, FALLBACK_MEMORY_CAP, MAX_IDEAL_CONTEXT_WINDOW_PERCENTAGE
 
 logger = logging.getLogger(__name__)
 
 _encode_token = tiktoken.get_encoding("cl100k_base")
-
-# Minimum output buffer for the generated response
-EXPECTED_OUTPUT_TOKENS = 2000
-
-# fallback token if actual model token is large to prevent memory overbloat
-FALLBACK_MEMORY_CAP = 6000
 
 
 class ChatMemory:
@@ -55,7 +50,7 @@ class ChatMemory:
             turns = json.loads(turns_data) if turns_data else []
 
             # if no summary query in db and cache it
-            if not convo_summary:
+            if convo_summary is None:
                 logger.info(f"[INFO] NO cached chats summary for {conversation_id}. Fetching DB")
                 convo_summary = await self.summary_repo.get_summary(chatbot_id, conversation_id)
                 
@@ -150,7 +145,7 @@ class ChatMemory:
         
         # merge with existing summary if one exists
         existing_summary = await self.summary_repo.get_summary(chatbot_id, conversation_id)
-        if not existing_summary:
+        if existing_summary is None:
             existing_summary = "No summarized conversation yet."
             
         summary_prompt = f"""
@@ -283,16 +278,6 @@ New Conversation:
             logger.error(f"[ERROR] Error deleting turn chats for session: {conversation_id}. {e}")
             return False
         
-    async def _delete_cached_summary(self, chatbot_id: UUID, conversation_id: str) -> bool:
-        try:
-            return await redis_service.delete(
-                key=self._cache_key_bldr(chatbot_id, conversation_id),
-                prefix=self.summary_chats_cache_prefix
-            )
-        except Exception as e:
-            logger.error(f"[ERROR] Error deleting summary chats for session: {conversation_id}. {e}")
-            return False
-    
     
     # ==================================================================
     # HELPER METHODS
@@ -317,7 +302,7 @@ New Conversation:
         available_for_memory = llm_context_window - overhead_tokens - EXPECTED_OUTPUT_TOKENS
         
         # Soft cap for turns to prevent bloating if context window is huge
-        soft_memory_cap = min(int(llm_context_window * 0.15), FALLBACK_MEMORY_CAP)
+        soft_memory_cap = min(int(llm_context_window * MAX_IDEAL_CONTEXT_WINDOW_PERCENTAGE), FALLBACK_MEMORY_CAP)
         
         # True Budget is the tighter bound of physical space vs. soft cap limits
         memory_budget = min(available_for_memory, soft_memory_cap)
@@ -336,6 +321,65 @@ New Conversation:
         
         return False
     
+    
+    def reduce_knowledge(
+        self, turns: list[Turn], llm_context_window: int,
+        current_query: str, knowledge_list: list[str] = [], 
+        system_prompt: str | None = ""
+    ) -> list[str]:
+        """
+        Returns knowledge list for LLM
+        This avoids bloated knowledge for context injection
+        
+        if user passes top_k=1000
+        that would bloat the LLM and easily consume all llm context window and 
+        constantly cache turns and early summary.
+        
+        to avoid this, cut the knowledge if it hits the knowledge ceiling budget
+        against the llm context window. Cut only the knowledge with low score.
+        """
+        # Calculate static overhead tokens
+        overhead_content = (current_query or "") + (system_prompt or "")
+
+        # Count the current turns payload
+        turns_content = "".join([(t.get("role","") + t.get("content","") + t.get("messaged_at","")) for t in turns])
+        overhead_content += turns_content
+        overhead_tokens = self._count_tokens(overhead_content)
+        
+        RESERVED_OUTPUT_TOKENS = 2000
+        soft_memory_cap = min(int(llm_context_window * 0.15), FALLBACK_MEMORY_CAP)
+        
+        # calculate remaining space for knowledge
+        remaining_for_knowledge = (
+            llm_context_window 
+            - overhead_tokens 
+            - RESERVED_OUTPUT_TOKENS 
+            - soft_memory_cap
+        )
+
+        if remaining_for_knowledge <= 0:
+            logger.warning("[WARNING] No space left for knowledge. Returning empty list.")
+            return []
+        
+        selected_knowledge = []
+        total_tokens = 0
+
+        for doc in knowledge_list:
+            doc_tokens = self._count_tokens(doc)
+
+            if total_tokens + doc_tokens > remaining_for_knowledge:
+                break
+
+            selected_knowledge.append(doc)
+            total_tokens += doc_tokens
+
+        logger.info(
+            f"[INFO] Knowledge reduced: {len(selected_knowledge)}/{len(knowledge_list)} chunks "
+            f"({total_tokens}/{remaining_for_knowledge} tokens used)"
+        )
+
+        return selected_knowledge
+        
     
     def _count_tokens(self, text: str) -> int:
         return len(_encode_token.encode(text))

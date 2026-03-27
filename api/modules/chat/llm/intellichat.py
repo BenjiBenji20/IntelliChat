@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -9,11 +10,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
  
 from api.modules.chat.llm.base_llm import BaseLLM
 from api.modules.chat.chat_schema import *
-from api.modules.retrievals.retrieval_schema import RetrievalResponseSchema, RetrievalRequestSchema
+from api.modules.retrievals.retrieval_schema import CollectionStatsSchema, RetrievalResponseSchema, RetrievalRequestSchema
 from api.modules.retrievals.retrieval_service import RetrieveEmbeddingsService
 from api.modules.chat.memory.chat_memory import ChatMemory
-from api.cache.redis_service import EMBEDDING_CACHE_PREFIX, EMBEDDING_CACHE_TTL
- 
+from api.cache.redis_service import (
+    EMBEDDING_CACHE_PREFIX, 
+    EMBEDDING_CACHE_TTL, 
+    FREQ_CACHE_PREFIX, 
+    redis_service
+)
+from shared.ai_models_details import (
+    EXPECTED_OUTPUT_TOKENS, 
+    FALLBACK_MEMORY_CAP, 
+    MAX_IDEAL_CONTEXT_WINDOW_PERCENTAGE, 
+    THEORETICAL_CHUNK_SIZE
+)
+
 logger = logging.getLogger(__name__)
  
  
@@ -48,19 +60,18 @@ class IntelliChat:
         embedding_provider: str | None = None,
         embedding_api_key: str | None = None,
         embedding_model_name: str | None = None,
+        filters: list[RetrievalFilter] | None = None,
+        total_docs: int | None = None, # total docs in qdrant under collection name
         top_k: int = 5,
     ) -> IntellichatResponseSchema:
  
         retrieval: RetrievalResponseSchema | None = None
         knowledge: list[str] = []
-        embedding_model_name = embedding_model_name.lower().strip()
-        embedding_provider = embedding_provider.lower().strip()
  
         # --- Start Memory Fetch Concurrently ---
-        memory = None
+        memory = ChatMemory(self.db)
         memory_task = None
         if self.has_memory:
-            memory = ChatMemory(self.db)
             memory_task = asyncio.create_task(
                 memory.my_memory(chatbot_id=chatbot_id, conversation_id=conversation_id)
             )
@@ -72,6 +83,35 @@ class IntelliChat:
                     status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                     detail="Retrieval service is configured but embedding credentials are missing.",
                 )
+
+            if total_docs is None:
+                # get the actual total docs in qdrant and use as ceiling
+                prefix = f"{FREQ_CACHE_PREFIX}(collection_stats)"
+                collection_stats = await redis_service.get(key=str(chatbot_id), prefix=prefix)
+                if collection_stats is None:
+                    collection_stats = await self.retrieval_service.get_collection_stats(chatbot_id)
+                    
+                if collection_stats:
+                    try:
+                        if isinstance(collection_stats, str):
+                            stats = json.loads(collection_stats)
+                        elif hasattr(collection_stats, "model_dump"):
+                            stats = collection_stats.model_dump()
+                        else:
+                            stats = collection_stats if isinstance(collection_stats, dict) else {}
+                        total_docs = stats.get("total_documents") if isinstance(stats, dict) else None
+                    except Exception as e:
+                        logger.warning(f"[IntelliChat] Failed to parse collection_stats: {e}")
+
+            # calculating safe max top_k against massive (if eg. top_k=50000) top_k input of user
+            # before pinging the qdrant
+            soft_memory_cap = min(int(self.llm.context_window * MAX_IDEAL_CONTEXT_WINDOW_PERCENTAGE), FALLBACK_MEMORY_CAP)
+            safe_rag_tokens = self.llm.context_window - EXPECTED_OUTPUT_TOKENS - soft_memory_cap - 1000 # reserved 1000 tokenns
+            
+            math_safe_top_k = max(1, safe_rag_tokens // THEORETICAL_CHUNK_SIZE)
+            safe_top_k = min(total_docs, math_safe_top_k) if total_docs is not None else math_safe_top_k
+            actual_top_k = min(top_k, safe_top_k)
+            
             try:
                 retrieval: RetrievalResponseSchema = await self.retrieval_service.retrieve_embeddings(
                     chatbot_id=chatbot_id,
@@ -80,9 +120,19 @@ class IntelliChat:
                     model_name=embedding_model_name,
                     cache_prefix=EMBEDDING_CACHE_PREFIX,
                     cache_ttl=EMBEDDING_CACHE_TTL,
-                    payload=RetrievalRequestSchema(query=query, top_k=top_k),
+                    payload=RetrievalRequestSchema(
+                        query=query, 
+                        filters=filters if filters is not None else [],    
+                        top_k=actual_top_k
+                    ),
                 )
                 if retrieval and retrieval.results:
+                    retrieval.results = sorted(
+                        retrieval.results,
+                        key=lambda x: x.score,
+                        reverse=True # highest score first
+                    )
+                    
                     knowledge = [chunk.page_content for chunk in retrieval.results]
             except HTTPException:
                 raise
@@ -103,6 +153,7 @@ class IntelliChat:
         prompt_tokens = 0
         completion_tokens = 0
         full_contexts = system_prompt
+        turns = []
         
         if self.has_memory and memory_task:
             whole_memory = await memory_task
@@ -120,6 +171,13 @@ class IntelliChat:
             Conversation summary:
             {conversation_summary}
             """
+ 
+        # reduce knowledge list to not bloat the llm
+        if knowledge:
+            knowledge = memory.reduce_knowledge(
+                turns=turns, llm_context_window=self.llm.context_window, current_query=query, 
+                knowledge_list=knowledge, system_prompt=full_contexts
+            )
  
         try:
             async for chunk in self.llm.chat_ai(
@@ -164,7 +222,7 @@ class IntelliChat:
             temperature=temperature,
             embedding_model_name=embedding_model_name,
             embedding_model_provider=embedding_provider,
-            top_k=top_k if self.retrieval_service else None,
+            top_k=actual_top_k if self.retrieval_service else None,
         )
  
         return IntellichatResponseSchema(

@@ -4,7 +4,7 @@ from uuid import UUID
  
 from pydantic import BaseModel, Field, field_validator
  
-from api.modules.retrievals.retrieval_schema import ChunkResultSchema
+from api.modules.retrievals.retrieval_schema import ChunkResultSchema, RetrievalFilter
 
 class IntelliChatRequest(BaseModel):
     query: str = Field(min_length=1, max_length=500, description="User's message")
@@ -16,9 +16,9 @@ class IntelliChatRequest(BaseModel):
         if special_char_ratio > 0.5:
             v = v.rstrip("?!.,;:")
         return v
-    
+    filters: list[RetrievalFilter] = Field(default_factory=list)
     conversation_id: str
-    top_k: int = 5
+    top_k: int = Field(default=5, gt=0, le=20)
  
  
 class UserResponse(BaseModel):

@@ -115,7 +115,7 @@ class RetrieveEmbeddingsService:
                 model_name=model_name,
                 qdrant=self.qdrant,
             )
-            
+
             response: RetrievalResponseSchema = await retriever.retrieve_embeddings(
                 query=payload.query,
                 chatbot_id=chatbot_id,
@@ -155,7 +155,7 @@ class RetrieveEmbeddingsService:
             cached = await redis_service.get(key=str(chatbot_id), prefix=redis_prefix)
             if cached:
                 return CollectionStatsSchema.model_validate_json(cached)
-
+                
             # use qdrant client directly — no aiohttp needed
             collection_info = await self.qdrant.get_collection(collection_name)
 
@@ -176,12 +176,14 @@ class RetrieveEmbeddingsService:
             )
 
             # cache for 12hrs
-            await redis_service.set(
+            asyncio.create_task(
+                await redis_service.set(
                     key=str(chatbot_id), # own key
                     value=stats.model_dump_json(),
                     prefix=redis_prefix,
                     ttl=FREQ_CACHE_TTL
                 )
+            )
 
             return stats
 

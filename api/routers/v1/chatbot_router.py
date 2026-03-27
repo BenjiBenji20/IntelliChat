@@ -91,6 +91,7 @@ async def test_intellichat(
         query=payload.query,
         top_k=payload.top_k,
         conversation_id=payload.conversation_id,
+        filters=payload.filters if payload.filters else None,
         project_id=project_id,
         chatbot_id=chatbot_id,
     )
@@ -118,6 +119,7 @@ async def intellichat(
         query=payload.query,
         top_k=payload.top_k,
         conversation_id=payload.conversation_id,
+        filters=payload.filters if payload.filters else None,
         project_id=project_id,
         chatbot_id=chatbot_id,
     )

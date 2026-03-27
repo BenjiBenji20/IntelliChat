@@ -10,6 +10,7 @@ from qdrant_client import AsyncQdrantClient
 from api.modules.chat.llm.intellichat import IntelliChat
 from api.modules.chat.llm.llm_factory import LLMFactory
 from api.modules.chat.chat_schema import IntellichatResponseSchema
+from api.modules.retrievals.retrieval_schema import RetrievalFilter
 from api.modules.retrievals.retrieval_service import RetrieveEmbeddingsService
 from api.modules.llm_api_keys.llm_key_repository import LlmKeyRepository
 from api.modules.embedding_model_api_keys.embedding_model_key_repository import EmbeddingModelKeyRepository
@@ -44,6 +45,7 @@ class TestIntelliChatService:
         chatbot_id: UUID,
         conversation_id: str,
         query: str,
+        filters: list[RetrievalFilter] | None = None,
         top_k: int = 5,
     ) -> IntellichatResponseSchema:
         try:
@@ -95,6 +97,18 @@ class TestIntelliChatService:
                     stats = await retrieval_svc.get_collection_stats(chatbot_id)
                 has_knowledge = stats is not None
                 
+            if has_knowledge:
+                try:
+                    if isinstance(stats, str):
+                        stats = json.loads(stats)
+                    elif hasattr(stats, "model_dump"):
+                        stats = stats.model_dump()
+                    else:
+                        stats = stats if isinstance(stats, dict) else {}
+                    total_docs = stats.get("total_documents") if isinstance(stats, dict) else None
+                except Exception as e:
+                    logger.warning(f"[TestIntelliChatService] Failed to parse stats: {e}")
+                
             orchestrator = IntelliChat(
                 llm=llm,
                 llm_provider=llm_data["llm_provider"],
@@ -116,6 +130,8 @@ class TestIntelliChatService:
                 chatbot_id=chatbot_id,
                 conversation_id=conversation_id,
                 query=query,
+                total_docs=total_docs,
+                filters=filters if filters else None,
                 system_prompt=system_prompt,
                 temperature=float(llm_data.get("temperature", 0.70)) if llm_data else 0.70,
                 embedding_provider=embedding_model_data.get("embedding_provider") if embedding_model_data else None,

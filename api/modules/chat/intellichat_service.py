@@ -10,6 +10,7 @@ from qdrant_client import AsyncQdrantClient
 from api.modules.chat.llm.intellichat import IntelliChat
 from api.modules.chat.llm.llm_factory import LLMFactory
 from api.modules.chat.chat_schema import IntellichatResponseSchema
+from api.modules.retrievals.retrieval_schema import RetrievalFilter
 from api.modules.retrievals.retrieval_service import RetrieveEmbeddingsService
 from api.modules.llm_api_keys.llm_key_repository import LlmKeyRepository
 from api.modules.embedding_model_api_keys.embedding_model_key_repository import EmbeddingModelKeyRepository
@@ -42,6 +43,7 @@ class IntelliChatService:
         chatbot_id: UUID,
         conversation_id: str,
         query: str,
+        filters: list[RetrievalFilter] | None = None,
         top_k: int = 5,
     ) -> IntellichatResponseSchema:
         try:
@@ -88,6 +90,7 @@ class IntelliChatService:
                 chatbot_id=chatbot_id,
                 conversation_id=conversation_id,
                 query=query,
+                filters=filters if filters else None,
                 system_prompt=system_prompt,
                 temperature=float(llm_data.get("temperature", 0.70)),
                 embedding_provider=embedding_model_data.get("embedding_provider"),
@@ -141,7 +144,7 @@ class IntelliChatService:
 
         logger.info(f"[CACHE MISS] freq_data_(chatbot_config_data) for chatbot {project_id}. Fetching from DB.")
         state = await self.chatbot_repo.get_chatbot_setup_status(project_id)
-        if state is None:
+        if not state:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, 
                 detail="Project not found."

@@ -99,11 +99,22 @@ def llm_provider_mapper(model_name: str, provider: str) -> bool:
     return model_name.lower().strip() in provider_map
 
 
+def llm_provider_validator(provider: str) -> bool:
+    return provider.lower().strip() in LLM_MODELS_PROVIDER_MAP.keys()
+
+
+# CHAT MEMORY SHARED CONSTANTS
+# Minimum output buffer for the generated response
+EXPECTED_OUTPUT_TOKENS = 2000
+
+# fallback token if actual model token is large to prevent memory overbloat
+FALLBACK_MEMORY_CAP = 6000
+
+# theoretical chunks size
+THEORETICAL_CHUNK_SIZE = 500
+
+MAX_IDEAL_CONTEXT_WINDOW_PERCENTAGE = 0.15
 def get_llm_context_window(model_name: str, provider: str) -> int:
     """Returns the exact context window based on the model and provider maps, default fallback to 8192."""
     provider_map = LLM_MODELS_PROVIDER_MAP.get(provider.lower().strip(), {})
     return provider_map.get(model_name.lower().strip(), 8192)
-
-
-def llm_provider_validator(provider: str) -> bool:
-    return provider.lower().strip() in LLM_MODELS_PROVIDER_MAP.keys()
