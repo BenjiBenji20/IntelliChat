@@ -34,9 +34,13 @@ class AssistantResponse(BaseModel):
  
  
 class UsageResponse(BaseModel):
-    prompt_tokens: int
-    completion_tokens: int
-    total_tokens: int
+    query_tokens: int = 0
+    prompt_tokens: int = 0
+    knowledge_tokens: int = 0
+    llm_response_tokens: int = 0
+    recent_memory_tokens: int = 0
+    summarized_memory_tokens: int = 0
+    total_tokens: int = 0
  
  
 class ModelMetadataResponse(BaseModel):

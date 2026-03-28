@@ -137,9 +137,8 @@ class IntelliChat:
  
         # --- Stream LLM response ---
         full_content = ""
-        prompt_tokens = 0
-        completion_tokens = 0
         full_contexts = system_prompt
+        conversation_summary = None
         turns = []
         
         if self.has_memory and memory_task:
@@ -199,6 +198,13 @@ class IntelliChat:
                     knowledge_list=knowledge, system_prompt=system_prompt
                 )
             )
+            
+        # build token receipt
+        query_tokens, prompt_tokens, knowledge_tokens, recent_memory_tokens, llm_response_tokens, total_tokens  = memory.token_receipt(
+            query=query, system_prompt=system_prompt, knowledge_list=knowledge if knowledge else None,
+            recent_memory=turns or [], llm_response=full_content if full_content else None
+        )
+        convo_summary_tokens = memory._count_tokens(conversation_summary) if conversation_summary else 0
  
         # --- Build response schema ---
         sources = retrieval.results if retrieval and retrieval.results else []
@@ -220,9 +226,13 @@ class IntelliChat:
             assistant=AssistantResponse(content=full_content, created_at=now),
             sources=sources,
             usage=UsageResponse(
+                query_tokens=query_tokens,
                 prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
-                total_tokens=prompt_tokens + completion_tokens,
+                knowledge_tokens=knowledge_tokens,
+                llm_response_tokens=llm_response_tokens,
+                recent_memory_tokens=recent_memory_tokens,
+                summarized_memory_tokens=convo_summary_tokens,
+                total_tokens=total_tokens + convo_summary_tokens
             ),
             model_metadata=metadata,
         )

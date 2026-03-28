@@ -379,7 +379,41 @@ New Conversation:
         )
 
         return selected_knowledge
-        
+    
+    
+    def token_receipt(
+        self, query: str | None = None,
+        system_prompt: str | None = None,
+        knowledge_list: list[str] = [],
+        recent_memory: list[Turn] | None = None,
+        llm_response: str | None = None
+    ) -> tuple[int, int, int, int, int, int]:
+        """Calculates the token costs for each response"""
+        total_tokens = 0
+        query_tokens = 0
+        prompt_tokens = 0
+        knowledge_tokens = 0
+        recent_memory_tokens = 0
+        llm_response_tokens = 0
+        if query:
+            query_tokens = self._count_tokens(query)
+            total_tokens += query_tokens
+        if system_prompt:
+            prompt_tokens = self._count_tokens(system_prompt)
+            total_tokens += prompt_tokens
+        if knowledge_list:
+            knowledge_str = "".join(knowledge_list)
+            knowledge_tokens = self._count_tokens(knowledge_str)
+            total_tokens += knowledge_tokens
+        if recent_memory:
+            turns_content = "".join([(t.get("role","") + t.get("content","") + t.get("messaged_at","")) for t in recent_memory])
+            recent_memory_tokens = self._count_tokens(turns_content)
+            total_tokens += recent_memory_tokens
+        if llm_response:
+            llm_response_tokens = self._count_tokens(llm_response)
+            total_tokens += llm_response_tokens
+            
+        return query_tokens, prompt_tokens, knowledge_tokens, recent_memory_tokens, llm_response_tokens, total_tokens 
     
     def _count_tokens(self, text: str) -> int:
         return len(_encode_token.encode(text))
