@@ -7,6 +7,7 @@ import asyncio
 
 from api.modules.behavior_studio.behavior_studio_schema import *
 from api.modules.behavior_studio.behavior_studio_script import (
+    fields_prompt,
     optimized_prompt, 
     generate_prompt_suggestions,
     improve_prompt_based_suggestions,
@@ -100,7 +101,12 @@ class BehaviorStudioService:
         """
         try:
             payload_dict = payload.model_dump(exclude_unset=True, exclude_none=True) # only fields client actually sent
-            chatbot_id = payload_dict["chatbot_id"]
+            chatbot_id = payload_dict.get("chatbot_id")
+            if not chatbot_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Missing chatbot_id in the update payload."
+                )
             
             # Strip out protected fields from payload
             protected_fields = {"id", "user_id", "chatbot_id", "created_at"}
@@ -202,11 +208,17 @@ class BehaviorStudioService:
             4. Return the improved prompt and prompt suggestions.
         """
         try:
-            prompt = self.fields_transformer(payload)
+            prompt = payload.system_prompt
+            
+            payload_dict = payload.model_dump(exclude_unset=True)
+            payload_dict.pop("system_prompt")
+            field_list = self.fields_transformer(payload_dict)
+            
+            fields = "".join(field_list)
             
             # convert strings into json array
             raw_suggestions = await self._run_llm(
-                generate_prompt_suggestions, prompt
+                generate_prompt_suggestions, prompt, fields
             )
             
             try:
@@ -264,7 +276,7 @@ class BehaviorStudioService:
                 
             except HTTPException:
                 raise
-            except:
+            except Exception:
                 # fallback: use the original prompt if error persists
                 improved_prompt = prompt
             
@@ -297,7 +309,7 @@ class BehaviorStudioService:
                 )
             except HTTPException:
                 raise
-            except:
+            except Exception:
                 # fallback: use the original prompt if error persists
                 improved_prompt = prompt
             
@@ -330,7 +342,7 @@ class BehaviorStudioService:
                 
             except HTTPException:
                 raise
-            except:
+            except Exception:
                 # fallback: use the original prompt if error persists
                 simplified_prompt = prompt
             
@@ -349,11 +361,7 @@ class BehaviorStudioService:
     # ===================================================================================
     # HELPER METHODS
     # ===================================================================================
-    def fields_transformer(self, payload: BehaviorStudioRequestSchema) -> str | None:
-        """
-        Transform fields + prompt to sentence
-        """
-        payload_dict = payload.model_dump(exclude_unset=True)
+    def fields_transformer(self, fields: dict) -> list:
         FIELD_LABELS = {
             "category": "Domain",
             "target_audience": "Target Audience",
@@ -364,15 +372,21 @@ class BehaviorStudioService:
             "fallback_message": "Fallback Message",
             "policy_restriction": "Policy Restriction",
         }
+        return [
+            f"{FIELD_LABELS[k]}: {v}"
+            for k, v, in fields.items()
+                if k in FIELD_LABELS and v
+        ] if fields else []
 
-        prompt_parts = []
+    
+    def structure_fields(self, payload: BehaviorStudioRequestSchema) -> str | None:
+        """
+        Transform fields + prompt to sentence
+        """
+        payload_dict = payload.model_dump(exclude_unset=True)
         prompt_bldr = None
         system_prompt = payload_dict.get("system_prompt", None)
-
-        for k, v in payload_dict.items():
-            if k in FIELD_LABELS and v:
-                prompt_parts.append(f"{FIELD_LABELS[k]}: {v}")
-
+        prompt_parts = self.fields_transformer(payload_dict)
         if prompt_parts:
             structured_context = "Configuration Fields:\n" + "\n".join(prompt_parts)
             if system_prompt:
@@ -387,7 +401,7 @@ class BehaviorStudioService:
     
     async def get_improved_prompt(self, payload: BehaviorStudioRequestSchema) -> str | None:
         # Transform non-null behavior fields into a structured raw prompt.
-        prompt = self.fields_transformer(payload)
+        prompt = self.structure_fields(payload)
         
         if prompt is None:
             raise HTTPException(
@@ -411,14 +425,14 @@ class BehaviorStudioService:
         return improved_prompt or None
     
     
-    async def _run_llm(self, func, *args, timeout: float = 30.0) -> str | None:
+    async def _run_llm(self, coro_func, *args, timeout: float = 30.0) -> str | None:
         """
-        Wraps any synchronous LLM script function in asyncio.to_thread with a timeout.
+        Runs an asynchronous LLM script function with a timeout.
         Raises 504 if LLM exceeds the timeout threshold.
         """
         try:
             return await asyncio.wait_for(
-                asyncio.to_thread(func, *args),
+                coro_func(*args),
                 timeout=timeout
             )
         except asyncio.TimeoutError:
