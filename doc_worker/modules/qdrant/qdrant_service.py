@@ -70,18 +70,31 @@ class QdrantService:
                 )
                 logger.info(f"QdrantService created collection: {collection_name}")
             try:
-                # Always ensure payload index exists for document_id
-                # Required for delete_document_vectors filter to work
-                await self.client.create_payload_index(
-                    collection_name=collection_name,
-                    field_name="document_id",
-                    field_schema="keyword"
-                )
+                # Map all properties from RetrievalFilter + document_id
+                INDEX_FIELDS = [
+                    ("document_id", "keyword"),
+                    ("file_type", "keyword"),
+                    ("file_name", "keyword"),
+                    ("content_type", "keyword"),
+                    ("document_type", "keyword"),
+                    ("title", "text"),          
+                    ("page_number", "integer"),
+                ]
+
+                # iterate and create indeces for each field
+                for field_name, field_schema in INDEX_FIELDS:                
+                    await self.client.create_payload_index(
+                        collection_name=collection_name,
+                        field_name=field_name,
+                        field_schema=field_schema
+                    )
                 logger.info(
                     f"QdrantService ensured payload index on document_id "
                     f"for collection={collection_name}"
                 )
-            except Exception:
+            except Exception as e:
+                # Safely pass if they already exist, but log precisely for debugging
+                logger.warning(f"Error ensuring indices for {collection_name}: {e}")
                 pass
             
         except Exception as e:

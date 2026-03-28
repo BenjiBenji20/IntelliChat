@@ -1,6 +1,7 @@
 import asyncio
 from uuid import UUID
 import logging
+import json
  
 from fastapi import HTTPException
 from qdrant_client import AsyncQdrantClient
@@ -9,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
  
 from api.modules.retrievals.retrieval_schema import (
     CollectionStatsSchema,
+    RetrievalFilter,
     RetrievalRequestSchema,
     RetrievalResponseSchema,
 )
@@ -96,8 +98,9 @@ class RetrieveEmbeddingsService:
         Main retrieval service method
         """
         try:
+            filter_str = self._build_filter_cache_str(payload.filters)
             cached_key = redis_service.normalize_query_cache_key(
-                prefix=f"{str(chatbot_id)}", query=payload.query
+                prefix=f"{str(chatbot_id)}", query=payload.query + filter_str
             )
             
             # check cached first
@@ -196,3 +199,11 @@ class RetrieveEmbeddingsService:
             logger.warning(f"Error fetching collection stats: {e}")
             return None
             
+
+    def _build_filter_cache_str(filters: list[RetrievalFilter]) -> str:
+        if not filters:
+            return ""
+        return json.dumps(
+            [dict(sorted(f.model_dump(exclude_none=True).items())) for f in filters],
+            sort_keys=True
+        )

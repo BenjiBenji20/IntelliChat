@@ -1,5 +1,5 @@
 import re
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 class RetrievalFilter(BaseModel):
     file_type: str | None = None # file extension ex. txt
@@ -14,13 +14,19 @@ class RetrievalFilter(BaseModel):
     title: str | None = None # file title in metadata
     content_type: str | None = None
     document_type: str | None = None
+
+    page_number: int | None = None # for pdf file_type only
+    document_id: str | None = None # str for vector filtering
+
+    # santize and transform all fields
+    @model_validator(mode="after")
+    def strip_empty_strings(self) -> "RetrievalFilter":
+        for field in RetrievalFilter.model_fields:
+            val = getattr(self, field)
+            if isinstance(val, str) and val.strip() == "":
+                setattr(self, field, None)
+        return self
     
-    # Document-type specific metadata fields
-    page_number: int | None = None
-    section: str | None = None
-    heading_level: int | None = None
-    json_path: str | None = None
-    record_id: str | None = None
 
 class RetrievalRequestSchema(BaseModel):
     query: str = Field(
