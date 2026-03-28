@@ -98,7 +98,7 @@ class RetrieveEmbeddingsService:
         Main retrieval service method
         """
         try:
-            filter_str = self._build_filter_cache_str(payload.filters)
+            filter_str = self._build_filter_cache_str(filters=payload.filters)
             cached_key = redis_service.normalize_query_cache_key(
                 prefix=f"{str(chatbot_id)}", query=payload.query + filter_str
             )
@@ -200,7 +200,7 @@ class RetrieveEmbeddingsService:
             return None
             
 
-    def _build_filter_cache_str(filters: list[RetrievalFilter]) -> str:
+    def _build_filter_cache_str(self, filters: list[RetrievalFilter]) -> str:
         if not filters:
             return ""
         return json.dumps(
