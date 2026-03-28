@@ -86,22 +86,9 @@ class IntelliChat:
 
             if total_docs is None:
                 # get the actual total docs in qdrant and use as ceiling
-                prefix = f"{FREQ_CACHE_PREFIX}(collection_stats)"
-                collection_stats = await redis_service.get(key=str(chatbot_id), prefix=prefix)
-                if collection_stats is None:
-                    collection_stats = await self.retrieval_service.get_collection_stats(chatbot_id)
-                    
-                if collection_stats:
-                    try:
-                        if isinstance(collection_stats, str):
-                            stats = json.loads(collection_stats)
-                        elif hasattr(collection_stats, "model_dump"):
-                            stats = collection_stats.model_dump()
-                        else:
-                            stats = collection_stats if isinstance(collection_stats, dict) else {}
-                        total_docs = stats.get("total_documents") if isinstance(stats, dict) else None
-                    except Exception as e:
-                        logger.warning(f"[IntelliChat] Failed to parse collection_stats: {e}")
+                stats = await self.retrieval_service.get_collection_stats(chatbot_id)
+                if stats:
+                    total_docs = stats.total_documents
 
             # calculating safe max top_k against massive (if eg. top_k=50000) top_k input of user
             # before pinging the qdrant

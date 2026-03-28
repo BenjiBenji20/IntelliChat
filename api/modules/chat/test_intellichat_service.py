@@ -91,23 +91,8 @@ class TestIntelliChatService:
             retrieval_svc = RetrieveEmbeddingsService(qdrant=self.qdrant, db=self.db)
             has_knowledge = False
             if has_embedding and not is_greeting: # bypass get_collection_stats if is-greeting=True
-                # get in redis first
-                stats = await redis_service.get(key=str(chatbot_id), prefix=f"{FREQ_CACHE_PREFIX}(collection_stats)")
-                if not stats:
-                    stats = await retrieval_svc.get_collection_stats(chatbot_id)
+                stats = await retrieval_svc.get_collection_stats(chatbot_id)
                 has_knowledge = stats is not None
-                
-            if has_knowledge:
-                try:
-                    if isinstance(stats, str):
-                        stats = json.loads(stats)
-                    elif hasattr(stats, "model_dump"):
-                        stats = stats.model_dump()
-                    else:
-                        stats = stats if isinstance(stats, dict) else {}
-                    total_docs = stats.get("total_documents") if isinstance(stats, dict) else None
-                except Exception as e:
-                    logger.warning(f"[TestIntelliChatService] Failed to parse stats: {e}")
                 
             orchestrator = IntelliChat(
                 llm=llm,
@@ -130,7 +115,7 @@ class TestIntelliChatService:
                 chatbot_id=chatbot_id,
                 conversation_id=conversation_id,
                 query=query,
-                total_docs=total_docs,
+                total_docs=stats.total_documents if stats else None,
                 filters=filters if filters else None,
                 system_prompt=system_prompt,
                 temperature=float(llm_data.get("temperature", 0.70)) if llm_data else 0.70,
