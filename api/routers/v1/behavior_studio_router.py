@@ -26,11 +26,11 @@ router = APIRouter(
     "/create", 
     response_model=BehaviorStudioResponseSchema,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(rate_limit_by_user())]
+    # dependencies=[Depends(rate_limit_by_user())]
 )
 async def create_behavior_studio(
     payload: BehaviorStudioRequestSchema,
-    current_user_id: UUID = Depends(get_current_user),
+    # current_user_id: UUID = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db)
 ):
     """

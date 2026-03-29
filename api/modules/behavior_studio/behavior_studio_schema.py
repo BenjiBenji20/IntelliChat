@@ -77,8 +77,8 @@ class BaseBehaviorStudioSchema(BaseModel):
 
         v = v.strip()
 
-        if len(v) > 2000:
-            raise ValueError("System prompt must not exceed 2000 characters.")
+        if len(v) > 5000:
+            raise ValueError("System prompt must not exceed 5000 characters.")
 
         # Check for prompt injection patterns
         INJECTION_PATTERNS = [
@@ -121,8 +121,8 @@ class SystemPromptRequestSchema(BaseModel):
 
         v = v.strip()
 
-        if len(v) > 2000:
-            raise ValueError("System prompt must not exceed 2000 characters.")
+        if len(v) > 5000:
+            raise ValueError("System prompt must not exceed 5000 characters.")
 
         INJECTION_PATTERNS = [
             r'ignore\s+(all\s+)?(previous|prior|above)\s+instructions?',
@@ -159,8 +159,8 @@ class PromptSuggestionRequestSchema(BaseModel):
 
         v = v.strip()
 
-        if len(v) > 2000:
-            raise ValueError("System prompt must not exceed 2000 characters.")
+        if len(v) > 5000:
+            raise ValueError("System prompt must not exceed 5000 characters.")
 
         INJECTION_PATTERNS = [
             r'ignore\s+(all\s+)?(previous|prior|above)\s+instructions?',

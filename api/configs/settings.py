@@ -28,8 +28,12 @@ class Settings(BaseSettings):
     UPSTASH_REDIS_TOKEN: str | None = None
     
     # AI api
-    LLM_API_KEY: str | None = None
-    LLM_NAME: str | None = None
+    PROMPT_GENERATOR_LLM_API_KEY: str | None = None
+    PROMPT_GENERATOR_LLM_NAME: str | None = None
+    PROMPT_VALIDATOR_LLM_API_KEY: str | None = None
+    PROMPT_VALIDATOR_LLM_NAME: str | None = None
+    PROMPT_REFINER_LLM_API_KEY: str | None = None
+    PROMPT_REFINER_LLM_NAME: str | None = None
     
     # GOOGLE CLOUD STORAGE SERVICE KEY
     TYPE: str | None = None 

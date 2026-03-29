@@ -6,14 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import asyncio
 
 from api.modules.behavior_studio.behavior_studio_schema import *
-from api.modules.behavior_studio.behavior_studio_script import (
-    fields_prompt,
-    optimized_prompt, 
-    generate_prompt_suggestions,
-    improve_prompt_based_suggestions,
-    improve_current_prompt,
-    simplify_current_prompt
-)
+from api.modules.behavior_studio.behavior_studio_script import prompt_builder
 from api.modules.behavior_studio.behavior_studio_repository import ChatbotBehaviorRepository
 from api.models.chatbot_behavior import ChatbotBehavior
 
@@ -218,7 +211,7 @@ class BehaviorStudioService:
             
             # convert strings into json array
             raw_suggestions = await self._run_llm(
-                generate_prompt_suggestions, prompt, fields
+                prompt_builder.generate_prompt_suggestions, prompt, fields
             )
             
             try:
@@ -270,7 +263,7 @@ class BehaviorStudioService:
                 
             try:
                 improved_prompt = await self._run_llm(
-                    improve_prompt_based_suggestions,
+                    prompt_builder.improve_prompt_based_suggestions,
                     prompt, suggestions_str
                 )
                 
@@ -304,7 +297,7 @@ class BehaviorStudioService:
             
             try:
                 improved_prompt = await self._run_llm(
-                    improve_current_prompt,
+                    prompt_builder.execute_improve_prompt_cycle,
                     prompt
                 )
             except HTTPException:
@@ -336,7 +329,7 @@ class BehaviorStudioService:
             
             try:
                 simplified_prompt = await self._run_llm(
-                    simplify_current_prompt,
+                    prompt_builder.simplify_current_prompt,
                     prompt
                 )
                 
@@ -411,7 +404,7 @@ class BehaviorStudioService:
         
         try:
             # let ai improve the fields with prompt for better prompt engineering
-            improved_prompt = await self._run_llm(optimized_prompt, prompt)
+            improved_prompt = await self._run_llm(prompt_builder.execute_prompt_cycle, prompt)
             
         except HTTPException:
             raise  
@@ -425,7 +418,7 @@ class BehaviorStudioService:
         return improved_prompt or None
     
     
-    async def _run_llm(self, coro_func, *args, timeout: float = 30.0) -> str | None:
+    async def _run_llm(self, coro_func, *args, timeout: float = 60.0) -> str | None:
         """
         Runs an asynchronous LLM script function with a timeout.
         Raises 504 if LLM exceeds the timeout threshold.
