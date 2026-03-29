@@ -90,6 +90,7 @@ class TestIntelliChatService:
 
             retrieval_svc = RetrieveEmbeddingsService(qdrant=self.qdrant, db=self.db)
             has_knowledge = False
+            stats = None
             if has_embedding and not is_greeting: # bypass get_collection_stats if is-greeting=True
                 stats = await retrieval_svc.get_collection_stats(chatbot_id)
                 has_knowledge = stats is not None
@@ -97,7 +98,7 @@ class TestIntelliChatService:
             orchestrator = IntelliChat(
                 llm=llm,
                 llm_provider=llm_data["llm_provider"],
-                has_memory=chatbot_data["has_memory"],
+                has_memory=False, # test intellichat should be stateless
                 db=self.db,
                 retrieval_service=(
                     retrieval_svc if has_embedding and has_knowledge and not is_greeting else None
@@ -116,7 +117,7 @@ class TestIntelliChatService:
                 conversation_id=conversation_id,
                 query=query,
                 total_docs=stats.total_documents if stats else None,
-                filters=filters if filters else None,
+                filters=filters if filters and has_embedding else None,
                 system_prompt=system_prompt,
                 temperature=float(llm_data.get("temperature", 0.70)) if llm_data else 0.70,
                 embedding_provider=embedding_model_data.get("embedding_provider") if embedding_model_data else None,
