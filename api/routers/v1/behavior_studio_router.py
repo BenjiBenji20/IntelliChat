@@ -96,7 +96,6 @@ async def create_prompt(
 
 @router.post(
     "/prompt/ai-suggestion", 
-    response_model=SystemPromptResponseSchema,
     status_code=status.HTTP_200_OK,
     dependencies=[Depends(rate_limit_by_user())]
 )
@@ -120,7 +119,6 @@ async def ai_suggestions_prompt(
 
 @router.post(
     "/prompt/improve", 
-    response_model=SystemPromptResponseSchema,
     status_code=status.HTTP_200_OK,
     dependencies=[Depends(rate_limit_by_user())]
 )
@@ -143,7 +141,6 @@ async def improve_prompt(
 
 @router.post(
     "/prompt/simplify", 
-    response_model=SystemPromptResponseSchema,
     status_code=status.HTTP_200_OK,
     dependencies=[Depends(rate_limit_by_user())]
 )

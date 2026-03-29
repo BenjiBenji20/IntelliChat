@@ -2,6 +2,7 @@ import json
 from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 import asyncio
 
@@ -234,25 +235,13 @@ class BehaviorStudioService:
 
     async def ai_suggestions_prompt(
         self, payload: PromptSuggestionRequestSchema
-    ) -> SystemPromptResponseSchema:
+    ) -> StreamingResponse:
         """
         Pass the prompt + suggestions to the service (no db) and let AI improve the 
         prompt based on the selected suggestions.
-        Flow:
-            1. Pass the prompt + suggestions list to the script
-            2. Let AI improve the prompt
-            3. Return the improved prompt based on suggestions
-            
-        Response goal: current prompt + improved prompt (based on suggestions)
-        While:
-            preserving original meaning
-            applying suggestions
-            keeping structure
         """
         try:
-            # extract each field
             prompt = payload.system_prompt.strip()
-            # transform list into string
             suggestions_str = ", ".join(payload.suggestions) if payload.suggestions is not None else ""
             
             if suggestions_str == "":
@@ -261,33 +250,20 @@ class BehaviorStudioService:
                     detail="Prompt cannot be improve without suggestions."
                 )
                 
-            try:
-                improved_prompt = await self._run_llm(
-                    prompt_builder.improve_prompt_based_suggestions,
-                    prompt, suggestions_str
-                )
-                
-            except HTTPException:
-                raise
-            except Exception:
-                # fallback: use the original prompt if error persists
-                improved_prompt = prompt
-            
-            return SystemPromptResponseSchema(
-                system_prompt=improved_prompt,
-                created_at=datetime.now(timezone.utc)
+            return StreamingResponse(
+                prompt_builder.stream_improve_prompt_based_suggestions(prompt, suggestions_str),
+                media_type="application/x-ndjson"
             )
             
         except HTTPException:
             raise
-
         except Exception as e:
             raise e
 
 
     async def improve_prompt(
         self, payload: SystemPromptRequestSchema
-    ) -> SystemPromptResponseSchema:
+    ) -> StreamingResponse:
         """
         Improve the prompt 
         Extract the prompt text from workspace and improve it.
@@ -295,58 +271,33 @@ class BehaviorStudioService:
         try:
             prompt = payload.system_prompt
             
-            try:
-                improved_prompt = await self._run_llm(
-                    prompt_builder.execute_improve_prompt_cycle,
-                    prompt
-                )
-            except HTTPException:
-                raise
-            except Exception:
-                # fallback: use the original prompt if error persists
-                improved_prompt = prompt
-            
-            return SystemPromptResponseSchema(
-                system_prompt=improved_prompt,
-                created_at=datetime.now(timezone.utc)
+            return StreamingResponse(
+                prompt_builder.stream_improve_prompt_cycle(prompt),
+                media_type="application/x-ndjson"
             )
             
         except HTTPException:
             raise
-
         except Exception as e:
             raise e
 
 
     async def simplify_prompt(
         self, payload: SystemPromptRequestSchema
-    ) -> SystemPromptResponseSchema:
+    ) -> StreamingResponse:
         """
-        Simplify prompt (no db) and pass to LLM streamer and return back to client
+        Simplify prompt and pass to LLM streamer and return back to client
         """
         try:
             prompt = payload.system_prompt
             
-            try:
-                simplified_prompt = await self._run_llm(
-                    prompt_builder.simplify_current_prompt,
-                    prompt
-                )
-                
-            except HTTPException:
-                raise
-            except Exception:
-                # fallback: use the original prompt if error persists
-                simplified_prompt = prompt
-            
-            return SystemPromptResponseSchema(
-                system_prompt=simplified_prompt,
-                created_at=datetime.now(timezone.utc)
+            return StreamingResponse(
+                prompt_builder.stream_simplify_current_prompt(prompt),
+                media_type="application/x-ndjson"
             )
             
         except HTTPException:
             raise
-
         except Exception as e:
             raise e
 

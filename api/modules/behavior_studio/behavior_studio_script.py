@@ -150,8 +150,8 @@ Just the clean system prompt.
         return await self.prompt_generator(meta_prompt, prompt)
 
 
-    async def improve_prompt_based_suggestions(self, prompt: str, suggestions: str) -> str | None:
-        """Response goal: current prompt + improved prompt (based on suggestions)"""
+    async def improve_prompt_based_suggestions(self, prompt: str, suggestions: str, stream: bool = False) -> Any:
+        """"""
         if not prompt or not suggestions:
             return None
         
@@ -234,15 +234,11 @@ Just the clean system prompt.
     """
         prompt = f"CURRENT PROMPT:\n{prompt}"
 
-        return await self.prompt_generator(meta_prompt, prompt)
+        return await self.prompt_generator(meta_prompt, prompt, stream=stream)
 
 
-    async def improve_current_prompt(self, prompt: str) -> str | None:
-        """
-        Regenerate prompt.
-        Extract the prompt text (whether it's already improved or not)
-        and produce a cleaner, more optimized version while preserving intent.
-        """
+    async def improve_current_prompt(self, prompt: str, stream: bool = False) -> Any:
+        """"""
 
         if not prompt:
             return None
@@ -316,11 +312,11 @@ Just the clean system prompt.
     """
 
         prompt = f"Prompt to regenerate:\n{prompt}"
-        return await self.prompt_generator(meta_prompt, prompt)
+        return await self.prompt_generator(meta_prompt, prompt, stream=stream)
         
         
-    async def simplify_current_prompt(self, prompt: str) -> str | None:
-        """Simplify the current prompt"""
+    async def simplify_current_prompt(self, prompt: str, stream: bool = False) -> Any:
+        """"""
 
         if not prompt or not prompt.strip():
             return None
@@ -401,12 +397,12 @@ Just the clean system prompt.
 
         prompt = f"Prompt to simplify:\n{prompt}"
 
-        return await self.prompt_generator(meta_prompt, prompt)
+        return await self.prompt_generator(meta_prompt, prompt, stream=stream)
 
 
     async def _run_validation_refinement_cycle(self, draft_prompt: str) -> str:
         """
-        Runs the Validator and Refiner cycle for up to 2 iterations.
+        Runs the Validator and Refiner cycle for up to 1 iteration.
         Returns the original draft_prompt if refinement fails.
         """
         current_prompt = draft_prompt
@@ -504,10 +500,132 @@ Do not add any introductions, explanations, XML tags, JSON, or meta-commentary. 
         if not draft_prompt:
             return None
             
-        return await self._run_validation_refinement_cycle(draft_prompt)
+        final_prompt = await self._run_validation_refinement_cycle(draft_prompt)
+        
+        if len(final_prompt) > 2000:
+            final_prompt = draft_prompt if len(draft_prompt) <= 2000 else draft_prompt[:2000]
+            
+        return final_prompt
 
 
-    async def prompt_generator(self, meta_prompt: str, query: str) -> str | None:
+    # =========================================================================
+    # STREAMING YIELD GENERATORS
+    # =========================================================================
+
+    async def stream_improve_prompt_cycle(self, prompt: str):
+        """Streaming equivalent for improving an existing prompt"""
+        gen_stream = await self.improve_current_prompt(prompt, stream=True)
+        if not gen_stream:
+            yield json.dumps({"type": "error", "message": "Failed to initialize prompt generation."}) + "\n"
+            return
+            
+        draft_prompt = ""
+        async for chunk in gen_stream:
+            draft_prompt += chunk
+            yield json.dumps({"type": "chunk", "content": chunk}) + "\n"
+            
+        # [2] Validation
+        yield json.dumps({"type": "status", "message": "Validating..."}) + "\n"
+        validation = await self.prompt_validator(draft_prompt)
+        is_valid = validation.get("is_valid", False)
+        
+        if is_valid and len(draft_prompt) <= 2000:
+            yield json.dumps({"type": "done", "content": draft_prompt}) + "\n"
+            return
+            
+        # [3] Refiner
+        reason = validation.get("reason", "")
+        missing_fields = validation.get("missing_fields", [])
+        
+        yield json.dumps({"type": "clear", "message": "Refining..."}) + "\n"
+        
+        REFINER_PROMPT = f"""
+<role>
+You are an Elite AI Prompt Refiner. Your job is to fix and upgrade a system prompt that failed quality validation. 
+You must intelligently inject the missing rules or rewrite weak sections so the prompt passes strict validation, while maintaining its original intent, persona, and tone.
+</role>
+
+<validation_feedback>
+The validator rejected the current prompt for the following reason:
+"{reason}"
+
+The prompt completely failed or was too weak in these specific areas:
+[{', '.join(missing_fields)}]
+</validation_feedback>
+
+<repair_instructions>
+1. Analyze the `Current Prompt` provided at the bottom.
+2. Address the validation feedback by seamlessly integrating explicit, unambiguous instructions for the missing or weak fields.
+3. Do not just append a disconnected list of rules at the end. Weave the fixes logically and naturally into the prompt's existing structure.
+4. Ensure the fixed areas strictly align with these validator definitions:
+   - Identity rules: Clear role, persona, tone, audience, and behavioral boundaries.
+   - RAG rules: Explicit instruction to prioritize "Retrieved Knowledge" for factual answers, acknowledging that this is an OPTIONAL source that might be empty or missing at runtime.
+   - Memory rules: How to use "Memory" (history), acknowledging that memory might be empty, its lower priority compared to Retrieved Knowledge, and conflict resolution (RAG wins).
+   - Fallback logic rules: Exact behavior and message when both knowledge and memory are missing, empty, or fail to answer the query.
+   - Safety rules logic: Boundaries against harmful requests, off-topic constraints, and protection of the system instructions.
+</repair_instructions>
+
+<strict_writing_rules>
+- Maintain direct, authoritative second-person language ("You are...", "You must...", "Never...").
+- Do NOT use markdown headers (###, ##, **bold titles**, etc.).
+- Write in clear paragraphs and use simple bullet points (-) only when listing strict rules.
+- Do not make the prompt read like a fragmented checklist; keep it cohesive.
+</strict_writing_rules>
+
+<output_format>
+Output ONLY the complete, refined system prompt text. 
+Do not add any introductions, explanations, XML tags, JSON, or meta-commentary. Just the clean, fixed prompt.
+</output_format>
+
+<current_prompt>
+{draft_prompt}
+</current_prompt>
+"""
+        refiner_stream = await self.prompt_refiner(REFINER_PROMPT, stream=True)
+        if not refiner_stream:
+            # Fallback
+            yield json.dumps({"type": "clear", "message": "Refinement failed. Restoring draft."}) + "\n"
+            yield json.dumps({"type": "chunk", "content": draft_prompt[:2000]}) + "\n"
+            yield json.dumps({"type": "done", "content": draft_prompt[:2000]}) + "\n"
+            return
+            
+        refined = ""
+        async for chunk in refiner_stream:
+            refined += chunk
+            yield json.dumps({"type": "chunk", "content": chunk}) + "\n"
+            
+        if len(refined) > 2000:
+            yield json.dumps({"type": "clear", "message": "Refined too long. Restoring draft."}) + "\n"
+            yield json.dumps({"type": "chunk", "content": draft_prompt[:2000]}) + "\n"
+            yield json.dumps({"type": "done", "content": draft_prompt[:2000]}) + "\n"
+            return
+            
+        yield json.dumps({"type": "done", "content": refined}) + "\n"
+
+
+    async def stream_improve_prompt_based_suggestions(self, prompt: str, suggestions: str):
+        gen_stream = await self.improve_prompt_based_suggestions(prompt, suggestions, stream=True)
+        if not gen_stream:
+            yield json.dumps({"type": "error", "message": "Failed to initialize prompt generation."}) + "\n"
+            return
+            
+        async for chunk in gen_stream:
+            yield json.dumps({"type": "chunk", "content": chunk}) + "\n"
+        yield json.dumps({"type": "done", "content": ""}) + "\n"
+
+
+    async def stream_simplify_current_prompt(self, prompt: str):
+        gen_stream = await self.simplify_current_prompt(prompt, stream=True)
+        if not gen_stream:
+            yield json.dumps({"type": "error", "message": "Failed to initialize prompt generation."}) + "\n"
+            return
+            
+        async for chunk in gen_stream:
+            yield json.dumps({"type": "chunk", "content": chunk}) + "\n"
+        yield json.dumps({"type": "done", "content": ""}) + "\n"
+
+
+    async def prompt_generator(self, meta_prompt: str, query: str, stream: bool = False) -> Any:
         """
         Behavior: creative, semi-deterministic and semi-strict
         Priorities: generate full system prompt. Adds values and Handle missing fields
@@ -526,6 +644,13 @@ Do not add any introductions, explanations, XML tags, JSON, or meta-commentary. 
             stream=True,
         )
         
+        if stream:
+            async def generator():
+                async for chunk in response_stream:
+                    if chunk.choices and chunk.choices[0].delta.content:
+                        yield chunk.choices[0].delta.content
+            return generator()
+            
         response = ""
         async for chunk in response_stream:
             if chunk.choices and chunk.choices[0].delta.content:
@@ -624,7 +749,7 @@ Be strict, objective, and precise. Do not be lenient.
         return validation
 
 
-    async def prompt_refiner(self, meta_prompt: str) -> str | None:
+    async def prompt_refiner(self, meta_prompt: str, stream: bool = False) -> Any:
         """
         Behavior: controlled + creative
         Priority: focus on improvement
@@ -640,6 +765,13 @@ Be strict, objective, and precise. Do not be lenient.
             stream=True,
         )
         
+        if stream:
+            async def generator():
+                async for chunk in response_stream:
+                    if chunk.choices and chunk.choices[0].delta.content:
+                        yield chunk.choices[0].delta.content
+            return generator()
+            
         # concat chunks as they arrive
         response = ""
         async for chunk in response_stream:
