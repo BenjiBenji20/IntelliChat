@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import typing
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -47,7 +48,7 @@ class TestIntelliChatService:
         query: str,
         filters: list[RetrievalFilter] | None = None,
         top_k: int = 5,
-    ) -> IntellichatResponseSchema:
+    ) -> typing.Union[IntellichatResponseSchema, typing.AsyncGenerator]:
         try:
             llm_data, chatbot_data, embedding_model_data, system_prompt = await self._get_chatbot_current_state_data(
                 project_id=project_id
@@ -116,6 +117,7 @@ class TestIntelliChatService:
                 chatbot_id=chatbot_id,
                 conversation_id=conversation_id,
                 query=query,
+                stream=True,
                 total_docs=stats.total_documents if stats else None,
                 filters=filters if filters and has_embedding else None,
                 system_prompt=system_prompt,

@@ -19,6 +19,7 @@ class IntelliChatRequest(BaseModel):
     filters: list[RetrievalFilter] = Field(default_factory=list)
     conversation_id: str
     top_k: int = Field(default=5, gt=0, le=20)
+    stream: bool = False
  
  
 class UserResponse(BaseModel):
@@ -60,6 +61,7 @@ class IntellichatResponseSchema(BaseModel):
     id: UUID
     conversation_id: str
     chatbot_id: UUID
+    stream: bool = False
     client: UserResponse
     assistant: AssistantResponse
     sources: list[ChunkResultSchema] = Field(default_factory=list)    # empty list when no retriever

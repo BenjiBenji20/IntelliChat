@@ -1,6 +1,8 @@
+import typing
 from uuid import UUID
 
 from fastapi import APIRouter, Request, Depends, status
+from fastapi.responses import StreamingResponse
 from qdrant_client import AsyncQdrantClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -87,7 +89,7 @@ async def test_intellichat(
     IntelliChat test your chatbot in Overview page    
     """
     service = TestIntelliChatService(db=db, qdrant=qdrant)
-    return await service.test_chat(
+    res = await service.test_chat(
         query=payload.query,
         top_k=payload.top_k,
         conversation_id=payload.conversation_id,
@@ -95,6 +97,9 @@ async def test_intellichat(
         project_id=project_id,
         chatbot_id=chatbot_id,
     )
+    if isinstance(res, typing.AsyncGenerator):
+        return StreamingResponse(res, media_type="text/event-stream")
+    return res
 
 
 @router.post(
@@ -115,11 +120,15 @@ async def intellichat(
     User/production endpoint    
     """
     service = IntelliChatService(db=db, qdrant=qdrant)
-    return await service.chat(
+    res = await service.chat(
         query=payload.query,
+        stream=payload.stream,
         top_k=payload.top_k,
         conversation_id=payload.conversation_id,
         filters=payload.filters if payload.filters else None,
         project_id=project_id,
         chatbot_id=chatbot_id,
     )
+    if isinstance(res, typing.AsyncGenerator):
+        return StreamingResponse(res, media_type="text/event-stream")
+    return res

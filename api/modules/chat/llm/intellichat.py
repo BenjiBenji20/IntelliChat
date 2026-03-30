@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import typing
 import uuid
 from datetime import datetime, timezone
 from uuid import UUID
@@ -54,6 +55,7 @@ class IntelliChat:
         chatbot_id: UUID,
         conversation_id: str,
         query: str,
+        stream: bool = False,
         system_prompt: str | None = None,
         temperature: float = 0.70,
         # retrieval params — only used when retrieval_service is present
@@ -63,10 +65,50 @@ class IntelliChat:
         filters: list[RetrievalFilter] | None = None,
         total_docs: int | None = None, # total docs in qdrant under collection name
         top_k: int = 5,
-    ) -> IntellichatResponseSchema:
- 
+    ) -> typing.Union[IntellichatResponseSchema, typing.AsyncGenerator]:
+        generator = self._core_logic_generator(
+            chatbot_id=chatbot_id, conversation_id=conversation_id, query=query,
+            system_prompt=system_prompt, temperature=temperature,
+            embedding_provider=embedding_provider, embedding_api_key=embedding_api_key,
+            embedding_model_name=embedding_model_name, filters=filters,
+            total_docs=total_docs, top_k=top_k, stream=stream
+        )
+        if stream:
+            return generator
+            
+        final_schema = None
+        async for payload in generator:
+            if payload.startswith("data: [DONE]"):
+                data_str = payload.replace("data: [DONE] ", "").strip()
+                final_schema = IntellichatResponseSchema.model_validate_json(data_str)
+        
+        if final_schema is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Stream ended without producing a final schema."
+            )
+        return final_schema
+
+    async def _core_logic_generator(
+        self,
+        chatbot_id: UUID,
+        conversation_id: str,
+        query: str,
+        stream: bool,
+        system_prompt: str | None = None,
+        temperature: float = 0.70,
+        embedding_provider: str | None = None,
+        embedding_api_key: str | None = None,
+        embedding_model_name: str | None = None,
+        filters: list[RetrievalFilter] | None = None,
+        total_docs: int | None = None,
+        top_k: int = 5,
+    ):
+        yield f"data: {json.dumps({'status': 'Initializing...'})}\n\n"
+        
         retrieval: RetrievalResponseSchema | None = None
         knowledge: list[str] = []
+        actual_top_k = top_k
  
         # --- Start Memory Fetch Concurrently ---
         memory = ChatMemory(self.db)
@@ -78,6 +120,7 @@ class IntelliChat:
 
         # --- Retrieve knowledge (optional) ---
         if self.retrieval_service:
+            yield f"data: {json.dumps({'status': 'Retrieving knowledge...'})}\n\n"
             if not all([embedding_provider, embedding_api_key, embedding_model_name]):
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -124,7 +167,6 @@ class IntelliChat:
             except HTTPException:
                 raise
             except Exception as e:
-                # 404 implies the vector collection wasn't found (no documents uploaded yet)
                 if "404" in str(e) or "Not Found" in str(e):
                     logger.warning(f"[IntelliChat] Vector collection not found for chatbot {chatbot_id}. Proceeding with base LLM knowledge.")
                     knowledge = []
@@ -135,8 +177,9 @@ class IntelliChat:
                         detail="Knowledge retrieval failed. Please try again.",
                     )
  
+        yield f"data: {json.dumps({'status': 'Thinking...'})}\n\n"
+
         # --- Stream LLM response ---
-        full_content = ""
         full_contexts = system_prompt
         conversation_summary = None
         turns = []
@@ -164,7 +207,11 @@ class IntelliChat:
                 turns=turns, llm_context_window=self.llm.context_window, current_query=query, 
                 knowledge_list=knowledge, system_prompt=full_contexts
             )
- 
+
+        yield f"data: {json.dumps({'status': 'Generating response...'})}\n\n"
+
+        full_content = ""
+        is_cancelled = False
         try:
             async for chunk in self.llm.chat_ai(
                 chatbot_id=chatbot_id,
@@ -174,7 +221,12 @@ class IntelliChat:
                 system_prompt=full_contexts,
             ):
                 full_content += chunk
+                yield f"data: {json.dumps({'chunk': chunk})}\n\n"
  
+        except asyncio.CancelledError:
+            is_cancelled = True
+            logger.info(f"[IntelliChat] Client disconnected during generation for chatbot {chatbot_id}")
+            raise
         except HTTPException:
             raise
         except Exception as e:
@@ -183,57 +235,59 @@ class IntelliChat:
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail="The AI model failed to respond. Please try again.",
             )
-            
-        now = datetime.now(timezone.utc)
-        current_time_str = datetime.now().strftime('%b %d, %Y %I:%M %p')
-            
-        if self.has_memory: 
-            turns.append({"role": "user", "content": query, "messaged_at": current_time_str})
-            turns.append({"role": "assistant", "content": full_content, "messaged_at": current_time_str})
+        finally:
+            now = datetime.now(timezone.utc)
+            current_time_str = datetime.now().strftime('%b %d, %Y %I:%M %p')
                 
-            asyncio.create_task(
-                memory.cache_turns(
-                    chatbot_id=chatbot_id, conversation_id=conversation_id,
-                    turns=turns, llm=self.llm, current_query=query, 
-                    knowledge_list=knowledge, system_prompt=system_prompt
+            if self.has_memory and full_content: 
+                turns.append({"role": "user", "content": query, "messaged_at": current_time_str})
+                turns.append({"role": "assistant", "content": full_content, "messaged_at": current_time_str})
+                    
+                asyncio.create_task(
+                    memory.cache_turns(
+                        chatbot_id=chatbot_id, conversation_id=conversation_id,
+                        turns=turns, llm=self.llm, current_query=query, 
+                        knowledge_list=knowledge, system_prompt=system_prompt
+                    )
                 )
+
+        if not is_cancelled:
+            # build token receipt
+            query_tokens, prompt_tokens, knowledge_tokens, recent_memory_tokens, llm_response_tokens, total_tokens  = memory.token_receipt(
+                query=query, system_prompt=system_prompt, knowledge_list=knowledge if knowledge else None,
+                recent_memory=turns or [], llm_response=full_content if full_content else None
             )
+            convo_summary_tokens = memory._count_tokens(conversation_summary) if conversation_summary else 0
+    
+            sources = retrieval.results if retrieval and retrieval.results else []
             
-        # build token receipt
-        query_tokens, prompt_tokens, knowledge_tokens, recent_memory_tokens, llm_response_tokens, total_tokens  = memory.token_receipt(
-            query=query, system_prompt=system_prompt, knowledge_list=knowledge if knowledge else None,
-            recent_memory=turns or [], llm_response=full_content if full_content else None
-        )
-        convo_summary_tokens = memory._count_tokens(conversation_summary) if conversation_summary else 0
- 
-        # --- Build response schema ---
-        sources = retrieval.results if retrieval and retrieval.results else []
-        
-        metadata = ModelMetadataResponse(
-            llm_model=self.llm.model_name,
-            llm_provider=self.llm_provider,
-            temperature=temperature,
-            embedding_model_name=embedding_model_name,
-            embedding_model_provider=embedding_provider,
-            top_k=actual_top_k if self.retrieval_service else None,
-        )
- 
-        return IntellichatResponseSchema(
-            id=uuid.uuid4(), 
-            conversation_id=conversation_id,
-            chatbot_id=chatbot_id,
-            client=UserResponse(query=query, created_at=now),
-            assistant=AssistantResponse(content=full_content, created_at=now),
-            sources=sources,
-            usage=UsageResponse(
-                query_tokens=query_tokens,
-                prompt_tokens=prompt_tokens,
-                knowledge_tokens=knowledge_tokens,
-                llm_response_tokens=llm_response_tokens,
-                recent_memory_tokens=recent_memory_tokens,
-                summarized_memory_tokens=convo_summary_tokens,
-                total_tokens=total_tokens + convo_summary_tokens
-            ),
-            model_metadata=metadata,
-        )
+            metadata = ModelMetadataResponse(
+                llm_model=self.llm.model_name,
+                llm_provider=self.llm_provider,
+                temperature=temperature,
+                embedding_model_name=embedding_model_name,
+                embedding_model_provider=embedding_provider,
+                top_k=actual_top_k if self.retrieval_service else None,
+            )
+    
+            schema = IntellichatResponseSchema(
+                id=uuid.uuid4(), 
+                conversation_id=conversation_id,
+                chatbot_id=chatbot_id,
+                stream=stream,
+                client=UserResponse(query=query, created_at=now),
+                assistant=AssistantResponse(content=full_content, created_at=now),
+                sources=sources,
+                usage=UsageResponse(
+                    query_tokens=query_tokens,
+                    prompt_tokens=prompt_tokens,
+                    knowledge_tokens=knowledge_tokens,
+                    llm_response_tokens=llm_response_tokens,
+                    recent_memory_tokens=recent_memory_tokens,
+                    summarized_memory_tokens=convo_summary_tokens,
+                    total_tokens=total_tokens + convo_summary_tokens
+                ),
+                model_metadata=metadata,
+            )
+            yield f"data: [DONE] {schema.model_dump_json()}\n\n"
         
