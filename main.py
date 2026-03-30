@@ -34,6 +34,7 @@ from api.models.chatbot_behavior import ChatbotBehavior
 from api.models.chunking_configuration import ChunkingConfiguration
 
 from api.configs.qdrant import init_qdrant_client
+from api.middlewares.dual_cors import DualCORSMiddleware
 
 @asynccontextmanager
 async def life_span(app: FastAPI):
@@ -60,13 +61,9 @@ app = FastAPI(
     lifespan=life_span
 )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[settings.CORS_DEV_ORIGIN, settings.CORS_PROD_ORIGIN],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],  # Allows all headers
-)
+# public endpoints: /{UUID}/{UUID}
+# private endpoints: all other endpoints
+app.add_middleware(DualCORSMiddleware)
 
  
 # Register routers
