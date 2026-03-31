@@ -1,4 +1,5 @@
 import json
+import asyncio
 from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
@@ -30,26 +31,47 @@ class BehaviorStudioService:
     """
 
     async def create_behavior_studio(
-        self, payload: BehaviorStudioRequestSchema
+        self, payload: BehaviorStudioRequestSchema, to_optimize: bool = True
     ) -> BehaviorStudioResponseSchema:
         """
         Orchestrates the creation of a chatbot behavior profile.
 
         Flow:
-        1. Transform non-null behavior fields into a structured raw prompt.
-        2. Pass raw prompt to LLM to generate an optimized system prompt.
-        3. Persist the behavior fields + optimized system prompt to the DB.
-        4. Return the saved behavior profile as a response schema.
+        if to_optimize is True
+            1. Transform non-null behavior fields into a structured raw prompt.
+            2. Pass raw prompt to LLM to generate an optimized system prompt.
+            3. Persist the behavior fields + optimized system prompt to the DB.
+            4. Return the saved behavior profile as a response schema.
+        else:
+            directly store to DB
         """
         try:
-            improved_prompt = await self.get_improved_prompt(payload=payload)
-            
             # transform pydantic schema to dict and remove null fields
             payload_dict = payload.model_dump(exclude_unset=True, exclude_none=True)
+
+            # if system_prompt is missing run the generation
+            if not payload_dict.get("system_prompt"):
+                prompt_fields_list = self.fields_transformer(payload_dict)
+                prompt_fields = "Configuration Fields:\n" + "\n".join(prompt_fields_list) if prompt_fields_list else None
+                
+                final_prompt = None
+                if prompt_fields:
+                    final_prompt = await self._run_llm(
+                        prompt_builder.execute_generate_prompt_cycle,
+                        None,
+                        prompt_fields
+                    )
+
+                if final_prompt:
+                    # update the system_prompt to final_prompt
+                    payload_dict.update({"system_prompt": final_prompt})
+                    to_optimize = False # force to False to not run optimazation
             
-            # update the payload_dict.system_prompt = improved_promt
-            payload_dict.update({"system_prompt": improved_prompt})
-            
+            if to_optimize:
+                improved_prompt = await self.get_improved_prompt(payload=payload)
+                # update the system_prompt to improved_promt
+                payload_dict.update({"system_prompt": improved_prompt})
+
             # store the fields + improved prompt to db
             create: ChatbotBehavior = await self.chatbot_behavior_repo.create(
                 **payload_dict
@@ -84,6 +106,37 @@ class BehaviorStudioService:
         except Exception as e:
             await self.db.rollback()
             raise e
+        
+        
+    async def generate_prompt(
+        self, payload: BehaviorStudioRequestSchema
+    ):
+        """Generate prompt based on fields + system prompt"""
+        payload_dict = payload.model_dump(exclude_unset=True)
+        system_prompt = payload_dict.get("system_prompt", None)
+        
+        prompt_fields = None
+        if payload_dict:
+            prompt_fields = "Configuration Fields:\n" + "\n".join(self.fields_transformer(payload_dict))
+
+        if not prompt_fields:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Valid configuration fields are required."
+            )
+        
+        try:
+            # let ai generate a prompt based on available fields
+            return StreamingResponse(
+                prompt_builder.stream_generate_prompt_cycle(system_prompt, prompt_fields),
+                media_type="application/x-ndjson"
+            )
+            
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Improving raw prompt failed."
+            )
         
 
     async def update_behavior_studio(
@@ -330,11 +383,11 @@ class BehaviorStudioService:
         payload_dict = payload.model_dump(exclude_unset=True)
         prompt_bldr = None
         system_prompt = payload_dict.get("system_prompt", None)
-        prompt_parts = self.fields_transformer(payload_dict)
-        if prompt_parts:
-            structured_context = "Configuration Fields:\n" + "\n".join(prompt_parts)
+        prompt_fields = self.fields_transformer(payload_dict)
+        if prompt_fields:
+            structured_context = "Configuration Fields:\n" + "\n".join(prompt_fields)
             if system_prompt:
-                prompt_bldr = f"{structured_context}\n\nAdditional Instructions:\n{system_prompt}"
+                prompt_bldr = f"{structured_context}\n\nUser Prompt:\n{system_prompt}"
             else:
                 prompt_bldr = structured_context
         else:

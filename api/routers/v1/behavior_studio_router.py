@@ -23,14 +23,15 @@ router = APIRouter(
 """
 
 @router.post(
-    "/create", 
+    "/create/{to_optimize}", 
     response_model=BehaviorStudioResponseSchema,
     status_code=status.HTTP_201_CREATED,
-    # dependencies=[Depends(rate_limit_by_user())]
+    dependencies=[Depends(rate_limit_by_user())]
 )
 async def create_behavior_studio(
     payload: BehaviorStudioRequestSchema,
-    # current_user_id: UUID = Depends(get_current_user),
+    to_optimize: bool = True,
+    current_user_id: UUID = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -43,7 +44,7 @@ async def create_behavior_studio(
         )
     
     service = BehaviorStudioService(db)
-    return await service.create_behavior_studio(payload=payload)
+    return await service.create_behavior_studio(payload=payload, to_optimize=to_optimize)
     
 
 @router.patch(
@@ -92,6 +93,29 @@ async def create_prompt(
     
     service = BehaviorStudioService()
     return await service.create_prompt(payload=payload)
+
+
+@router.post(
+    "/generate/prompt", 
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(rate_limit_by_user())]
+)
+async def generate_prompt(
+    payload: BehaviorStudioRequestSchema,
+    current_user_id: UUID = Depends(get_current_user)
+):
+    """
+    Pass the prompt to the service (no db) and let AI generate suggestions
+    based on the input/select fields 
+    """
+    if not payload.chatbot_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Configure project's chatbot first before accessing AI Behavior Studio."
+        )
+    
+    service = BehaviorStudioService()
+    return await service.generate_prompt(payload=payload)
 
 
 @router.post(
