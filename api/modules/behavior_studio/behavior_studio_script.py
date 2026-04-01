@@ -487,11 +487,11 @@ Just the clean system prompt.
 
     async def _run_validation_refinement_cycle(self, draft_prompt: str) -> str:
         """
-        Runs the Validator and Refiner cycle for up to 1 iteration.
+        Runs the Validator and Refiner cycle for up to 2 iterations.
         Returns the original draft_prompt if refinement fails.
         """
         current_prompt = draft_prompt
-        max_cycles = 1
+        max_cycles = 2
         
         for _ in range(max_cycles):
             try:
