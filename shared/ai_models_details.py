@@ -30,7 +30,6 @@ def embedder_provider_mapper(model_name: str, provider: str) -> bool:
     EMBEDDER_MODELS_PROVIDER_MAP = {
         "google ai studio": [
             "gemini-embedding-001",
-            "text-embedding-004",
             "gemini-embedding-2-preview",
         ],
         "openai": [
@@ -58,11 +57,10 @@ def embedder_provider_mapper(model_name: str, provider: str) -> bool:
 # Global map for provider context limits
 LLM_MODELS_PROVIDER_MAP = {
     "groq": {
+        "openai/gpt-oss-safeguard-20b": 131_072, # Max: 131,072 ctx
         "openai/gpt-oss-120b": 131_072,          # Max: 131,072 ctx
         "openai/gpt-oss-20b": 131_072,           # Max: 131,072 ctx
         "llama-3.3-70b-versatile": 131_072,      # Max: 131,072 ctx
-        "llama-3.1-8b-instant": 131_072,         # Max: 131,072 ctx
-        "whisper-large-v3": 8192,
         "whisper-large-v3-turbo": 8192
     },
     "openai": {
