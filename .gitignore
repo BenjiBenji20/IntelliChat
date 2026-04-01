@@ -1,4 +1,5 @@
-*.env
+.env
+doc_worker.env
 *venv/
 __pycache__/
 *.pyc
